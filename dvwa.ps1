@@ -41,7 +41,9 @@ if (-not (Get-Module -ListAvailable -Name WebAdministration))
 Import-Module WebAdministration
 #Remove-WebHandler -Name "PHP_via_FastCGI" -ErrorAction SilentlyContinue
 #New-WebHandler -Path "*.php" -Verb "*" -Modules "FastCgiModule" -ScriptProcessor $phpCgiPath -Name "PHP_via_FastCGI"
+Add-WebConfiguration -pspath "IIS:\Sites\Default Web Site" -filter "system.webServer/handlers" -value @{name="PHP_via_FastCGI"; path="*.php"; verb="*"; modules="FastCgiModule"; scriptProcessor=$phpCgiPath; resourceType="Either"}
 Add-Webconfiguration 'system.webserver/fastcgi' -value @{ 'fullPath' = $phpCgiPath }
+Add-WebConfigurationProperty -pspath "IIS:\Sites\Default Web Site" -filter "system.webServer/defaultDocument/files" -name "." -value @{value="index.php"}
 
 $phpIni = "$phpPath\php.ini"
 if (-not (Test-Path $phpIni))
@@ -50,8 +52,10 @@ if (-not (Test-Path $phpIni))
 }
 
 # Configure php.ini
-Write-Output "extension=mysqli" >> $phpIni
-Write-Output "extension=pdo_mysql" >> $phpIni
+Add-Content -Path $phpIni -Value @(
+    "extension=mysqli"
+    "extension=pdo_mysql"
+)
 
 Write-Host "[*] PHP set up completed." -ForegroundColor Cyan
 
@@ -103,7 +107,6 @@ Copy-Item $dvwaSrc $sitePath -Recurse -Force
 
 # Point IIS Default Web Site to DVWA root
 Set-ItemProperty "IIS:\Sites\Default Web Site" -Name physicalPath -Value $sitePath
-Add-WebConfigurationProperty -pspath "IIS:\Sites\Default Web Site" -filter "system.webServer/defaultDocument/files" -name "." -value @{value="index.php"}
 
 # Creating MySQL Database for DVWA
 Write-Host "Creating DVWA database..." -ForegroundColor Cyan
