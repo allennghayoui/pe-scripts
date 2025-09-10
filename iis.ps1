@@ -10,7 +10,7 @@ if (-not $isServerManagerModuleInstalled)
 Import-Module ServerManager
 
 Write-Host "[*] Installing IIS..." -ForegroundColor Cyan
-Install-WindowsFeature -Name Web-Server -IncludeAllSubFeatures -IncludeManagementTools
+Install-WindowsFeature -Name Web-Server -IncludeAllSubFeature -IncludeManagementTools
 
 $IISFeature = Get-WindowsFeature -Name Web-Server
 $IISInstalled = $IISFeature.Installed
