@@ -1,6 +1,6 @@
 # Install choco package manager
-Write-Host "Installing choco..." -ForegroundColor Cyan
-IEX((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+#Write-Host "Installing choco..." -ForegroundColor Cyan
+#IEX((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 
 # Install PHP
 # Create PHP install directory
@@ -31,19 +31,7 @@ if (-not (Test-Path $phpCgiPath))
 	exit 1
 }
 
-# Check if WebAdministration module is available
-if (-not (Get-Module -ListAvailable -Name WebAdministration))
-{
-	Write-Error "[-] WebAdministration module not found."
-	exit 1
-}
 
-Import-Module WebAdministration
-#Remove-WebHandler -Name "PHP_via_FastCGI" -ErrorAction SilentlyContinue
-#New-WebHandler -Path "*.php" -Verb "*" -Modules "FastCgiModule" -ScriptProcessor $phpCgiPath -Name "PHP_via_FastCGI"
-Add-WebConfigurationProperty -pspath "IIS:\Sites\Default Web Site" -filter "system.webServer/handlers" -value @{name="PHP_via_FastCGI"; path="*.php"; verb="*"; modules="FastCgiModule"; scriptProcessor=$phpCgiPath; resourceType="Either"}
-Add-WebconfigurationProperty 'system.webserver/fastcgi' -value @{ 'fullPath' = $phpCgiPath }
-Add-WebConfigurationProperty -pspath "IIS:\Sites\Default Web Site" -filter "system.webServer/defaultDocument/files" -name "." -value @{value="index.php"}
 
 $phpIni = "$phpPath\php.ini"
 if (-not (Test-Path $phpIni))
@@ -110,6 +98,28 @@ Copy-Item $dvwaSrc $sitePath -Recurse -Force
 
 # Point IIS Default Web Site to DVWA root
 Set-ItemProperty "IIS:\Sites\Default Web Site" -Name physicalPath -Value $sitePath
+# Check if WebAdministration module is available
+if (-not (Get-Module -ListAvailable -Name WebAdministration))
+{
+	Write-Error "[-] WebAdministration module not found."
+	exit 1
+}
+
+Import-Module WebAdministration
+# Add PHP FastCGI handler
+Add-WebConfigurationProperty -pspath "IIS:\Sites\Default Web Site" `
+  -filter "system.webServer/handlers" -name "." `
+  -value @{name="PHP_via_FastCGI"; path="*.php"; verb="*"; modules="FastCgiModule"; scriptProcessor=$phpCgiPath; resourceType="Either"}
+
+# Register PHP in FastCGI
+Add-WebConfigurationProperty -pspath 'MACHINE/WEBROOT/APPHOST' `
+  -filter "system.webServer/fastCgi" -name "." `
+  -value @{ fullPath = $phpCgiPath }
+
+# Add index.php as default document
+Add-WebConfigurationProperty -pspath "IIS:\Sites\Default Web Site" `
+  -filter "system.webServer/defaultDocument/files" -name "." `
+  -value @{value="index.php"}
 
 # Creating MySQL Database for DVWA
 Write-Host "Creating DVWA database..." -ForegroundColor Cyan
@@ -120,7 +130,7 @@ $mysqlexe = "$mysqlPath\current\bin\mysql.exe"
 
 $sql = @"
 CREATE DATABASE dvwa;
-CREATE USER 'dvwa'@'localhost' IDENTIFIED BY 'p@ssword';
+CREATE USER 'dvwa'@'localhost' IDENTIFIED BY 'p@ssw0rd';
 GRANT ALL PRIVILEGES ON dvwa.* TO 'dvwa'@'localhost';
 FLUSH PRIVILEGES;
 "@
