@@ -117,7 +117,7 @@ $mysqlexe = "$mysqlPath\current\bin\mysql.exe"
 
 $sql = @"
 CREATE DATABASE dvwa;
-CREATE USER 'dvwa'@'localhost' IDENTIFIED BY 'dvwa';
+CREATE USER 'dvwa'@'localhost' IDENTIFIED BY 'p@ssword';
 GRANT ALL PRIVILEGES ON dvwa.* TO 'dvwa'@'localhost';
 FLUSH PRIVILEGES;
 "@
