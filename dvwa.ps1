@@ -106,6 +106,7 @@ if (-not (Get-Module -ListAvailable -Name WebAdministration))
 }
 
 Import-Module WebAdministration
+Start-Sleep -Seconds 5
 # Add PHP FastCGI handler
 Add-WebConfigurationProperty -pspath "IIS:\Sites\Default Web Site" `
   -filter "system.webServer/handlers" -name "." `
@@ -129,13 +130,15 @@ $mysqlPassword = ""
 $mysqlexe = "$mysqlPath\current\bin\mysql.exe"
 
 $sql = @"
-CREATE DATABASE dvwa;
-CREATE USER 'dvwa'@'localhost' IDENTIFIED BY 'p@ssw0rd';
+CREATE DATABASE IF NOT EXISTS dvwa;
+CREATE USER IF NOT EXISTS 'dvwa'@'localhost' IDENTIFIED BY 'p@ssw0rd';
+CREATE USER IF NOT EXISTS 'dvwa'@'127.0.0.1' IDENTIFIED BY 'p@ssw0rd';
 GRANT ALL PRIVILEGES ON dvwa.* TO 'dvwa'@'localhost';
+GRANT ALL PRIVILEGES ON dvwa.* TO 'dvwa'@'127.0.0.1';
 FLUSH PRIVILEGES;
 "@
 
-$sql | & $mysqlexe -u $mysqlUser --password=$mysqlPassword
+$sql | & $mysqlExe -u $rootUser --password=$rootPass
 
 # Update DVWA config
 $confFile = "$sitePath\config\config.inc.php"
@@ -156,33 +159,6 @@ foreach ($folder in $folders)
 iisreset
 
 # Call setup.php to finish setting up DVWA
-$loginUrl = "http://localhost/login.php"
-
-$page = Invoke-WebRequest -Uri $loginUrl -UseBasicParsing
-
-# Find the hidden input named 'user_token' from InputFields
-$userTokenField = $page.InputFields | Where-Object { $_.name -eq "user_token" } | Select-Object -First 1
-
-if ($userTokenField)
-{
-	$userToken = $userTokenField.value
-	Write-Host $userToken
-} else
-{
-	throw "Could not find user_token in InputFields"
-}
-
-# Form data
-$formData = @{
-	username  = "admin"
-	password = "password"
-	Login = "Login"
-	user_token = $userToken
-}
-
-# Submit POST request
-$response = Invoke-WebRequest -Uri $loginUrl -Method POST -Body $formData -UseBasicParsing
-
 $setupUrl = "http://localhost/setup.php"
 
 # Get the page to extract the user_token
@@ -210,33 +186,6 @@ $response = Invoke-WebRequest -Uri $setupUrl -Method POST -Body $formData -UseBa
 
 Write-Host $response.Content
 
-# URL to setup.php
-$setupUrl = "http://localhost/setup.php"
-
-# Get the page to extract the user_token
-$page = Invoke-WebRequest -Uri $setupUrl -UseBasicParsing
-
-# Find the hidden input named 'user_token' from InputFields
-$userTokenField = $page.InputFields | Where-Object { $_.name -eq "user_token" } | Select-Object -First 1
-
-if ($userTokenField)
-{
-	$userToken = $userTokenField.value
-} else
-{
-	throw "Could not find user_token in InputFields"
-}
-
-# Form data
-$formData = @{
-	create_db  = "Create / Reset Database"
-	user_token = $userToken
-}
-
-# Submit POST request
-Invoke-WebRequest -Uri $setupUrl -Method POST -Body $formData -UseBasicParsing
-
 Write-Host "[*] Finished setting up DVWA." -ForegroundColor Cyan
-
 Write-Host "[+] DVWA is ready! Browse to http://localhost/" -ForegroundColor Green
 Write-Host "[+] DVWA credentials: admin / password" -ForegroundColor Green
