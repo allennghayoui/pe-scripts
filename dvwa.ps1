@@ -1,6 +1,6 @@
 # Install choco package manager
-#Write-Host "Installing choco..." -ForegroundColor Cyan
-#IEX((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+Write-Host "Installing choco..." -ForegroundColor Cyan
+IEX((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 
 # Install PHP
 # Create PHP install directory
