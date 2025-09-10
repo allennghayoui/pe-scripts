@@ -47,10 +47,6 @@ Add-Content -Path $phpIni -Value @(
 
 Write-Host "[*] PHP set up completed." -ForegroundColor Cyan
 
-# Reset IIS
-Write-Host "[*] Resetting IIS..." -ForegroundColor Cyan
-iisreset
-
 # Install MySQL
 $mysqlPath = "C:\tools\mysql"
 $mysqlService = "MySQL"
@@ -120,6 +116,10 @@ Add-WebConfigurationProperty -pspath 'MACHINE/WEBROOT/APPHOST' `
 Add-WebConfigurationProperty -pspath "IIS:\Sites\Default Web Site" `
   -filter "system.webServer/defaultDocument/files" -name "." `
   -value @{value="index.php"}
+
+# Reset IIS
+Write-Host "[*] Resetting IIS..." -ForegroundColor Cyan
+iisreset
 
 # Creating MySQL Database for DVWA
 Write-Host "Creating DVWA database..." -ForegroundColor Cyan
