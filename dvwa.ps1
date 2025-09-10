@@ -47,6 +47,10 @@ Add-Content -Path $phpIni -Value @(
 
 Write-Host "[*] PHP set up completed." -ForegroundColor Cyan
 
+# Reset IIS
+Write-Host "[*] Resetting IIS..." -ForegroundColor Cyan
+iisreset
+
 # Install MySQL
 $mysqlPath = "C:\tools\mysql"
 $mysqlService = "MySQL"
@@ -117,10 +121,6 @@ Add-WebConfigurationProperty -pspath "IIS:\Sites\Default Web Site" `
   -filter "system.webServer/defaultDocument/files" -name "." `
   -value @{value="index.php"}
 
-# Reset IIS
-Write-Host "[*] Resetting IIS..." -ForegroundColor Cyan
-iisreset
-
 # Creating MySQL Database for DVWA
 Write-Host "Creating DVWA database..." -ForegroundColor Cyan
 
@@ -153,7 +153,63 @@ foreach ($folder in $folders)
 	icacls $folder /grant "IIS_IUSRS:(OI)(CI)F" /T
 }
 
+iisreset
+
 # Call setup.php to finish setting up DVWA
+$loginUrl = "http://localhost/login.php"
+
+$page = Invoke-WebRequest -Uri $loginUrl -UseBasicParsing
+
+# Find the hidden input named 'user_token' from InputFields
+$userTokenField = $page.InputFields | Where-Object { $_.name -eq "user_token" } | Select-Object -First 1
+
+if ($userTokenField)
+{
+	$userToken = $userTokenField.value
+	Write-Host $userToken
+} else
+{
+	throw "Could not find user_token in InputFields"
+}
+
+# Form data
+$formData = @{
+	username  = "admin"
+	password = "password"
+	Login = "Login"
+	user_token = $userToken
+}
+
+# Submit POST request
+$response = Invoke-WebRequest -Uri $loginUrl -Method POST -Body $formData -UseBasicParsing
+
+$setupUrl = "http://localhost/setup.php"
+
+# Get the page to extract the user_token
+$page = Invoke-WebRequest -Uri $setupUrl -UseBasicParsing
+
+# Find the hidden input named 'user_token' from InputFields
+$userTokenField = $page.InputFields | Where-Object { $_.name -eq "user_token" } | Select-Object -First 1
+
+if ($userTokenField)
+{
+	$userToken = $userTokenField.value
+} else
+{
+	throw "Could not find user_token in InputFields"
+}
+
+# Form data
+$formData = @{
+	create_db  = "Create / Reset Database"
+	user_token = $userToken
+}
+
+# Submit POST request
+$response = Invoke-WebRequest -Uri $setupUrl -Method POST -Body $formData -UseBasicParsing
+
+Write-Host $response.Content
+
 # URL to setup.php
 $setupUrl = "http://localhost/setup.php"
 
@@ -181,10 +237,6 @@ $formData = @{
 Invoke-WebRequest -Uri $setupUrl -Method POST -Body $formData -UseBasicParsing
 
 Write-Host "[*] Finished setting up DVWA." -ForegroundColor Cyan
-
-# Restarting IIS
-Write-Host "[*] Restarting IIS..." -ForegroundColor Cyan
-iisreset
 
 Write-Host "[+] DVWA is ready! Browse to http://localhost/" -ForegroundColor Green
 Write-Host "[+] DVWA credentials: admin / password" -ForegroundColor Green
