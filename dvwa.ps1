@@ -1,3 +1,16 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
 param(
 	[Parameter(Mandatory=$false)]
 	[string]$DvwaUser,
@@ -7,14 +20,12 @@ param(
 
 # Install PHP
 # Create PHP install directory
-$php84Base64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("php84"))
-$phpPath = "C:\tools\$php84Base64"
+$phpPath = "C:\tools\php84"
 
 if (-not (Test-Path $phpPath))
 {
 	Write-Host "[*] Installing PHP 8.4.11 under $phpPath..." -ForegroundColor Cyan
-	New-Item -Path $phpPath -ItemType Directory -Force
-	choco install php --version=8.4.11 -y --params "/InstallDir:$phpPath" -y
+	choco install php --version=8.4.11 -y
 }
 
 if (-not (Test-Path $phpPath))
@@ -45,6 +56,12 @@ Import-Module WebAdministration
 Remove-WebHandler -Name "PHP_via_FastCGI" -ErrorAction SilentlyContinue
 New-WebHandler -Path "*.php" -Verb "*" -Modules "FastCgiModule" -ScriptProcessor $phpCgiPath -Name "PHP_via_FastCGI"
 
+$phpIni = "$phpPath\php.ini"
+if (-not (Test-Path $phpIni))
+{
+	Copy-Item "$phpPath\php.ini-production" $phpIni -Force
+}
+
 # Configure php.ini
 $iniContent = Get-Content $phpIni
 $iniContent = $iniContent -replace '^(;?cgi\.fix_pathinfo\s*=).*', 'cgi_fix_path_info = 1'
@@ -58,15 +75,13 @@ Write-Host "[*] PHP set up completed." -ForegroundColor Cyan
 
 # Install MySQL
 
-$mysqlBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("MySQL"))
-$mysqlPath = "C:\tools\$mysqlBase64"
-$mysqlService = "MySQL92" # for MySQL 9.2.0
+$mysqlPath = "C:\tools\mysql"
+$mysqlService = "MySQL"
 
 if (-not (Test-Path $mysqlPath))
 {
 	Write-Host "[*] Installing MySQL 9.2.0 into $mysqlPath..." -ForegroundColor Cyan
-	New-Item -Path $mysqlPath -ItemType Directory -Force
-	choco install mysql --version=9.2.0 --params "/InstallDir:$mysqlPath" -y
+	choco install mysql --version=9.2.0 -y
 }
 
 if (-not (Test-Path $mysqlPath))
@@ -96,10 +111,10 @@ Invoke-WebRequest -Uri "https://github.com/digininja/DVWA/archive/master.zip" -O
 Expand-Archive -Path $dvwaZip -DestinationPath $env:TEMP -Force
 $dvwaSrc = "$env:TEMP\DVWA-master"
 
-$sitePath = "C:\inetput\wwwroot\dvwa"
+$sitePath = "C:\inetpub\wwwroot\dvwa"
 if ((Test-Path $sitePath))
 {
-	Remove-Item -Item $sitePath -Recurse -Force
+	Remove-Item -Path $sitePath -Recurse -Force
 }
 
 Copy-Item $dvwaSrc $sitePath -Recurse -Force
@@ -112,8 +127,7 @@ Write-Host "Creating DVWA database..." -ForegroundColor Cyan
 
 $mysqlUser = "root"
 $mysqlPassword = ""
-$mysqlPath = "C:\Program Files\MySQL"
-$mysqlexe = "$mysqlPath\MySQL Server 8.0\bin\mysql.exe"
+$mysqlexe = "$mysqlPath\current\bin\mysql.exe"
 
 $sql = @"
 CREATE DATABASE dvwa;
@@ -122,7 +136,7 @@ GRANT ALL PRIVILEGES ON dvwa.* TO 'dvwa'@'localhost';
 FLUSH PRIVILEGES;
 "@
 
-$sql | & $mysqlexe -u $mysqlUser -p$mysqlPassword
+$sql | & $mysqlexe -u $mysqlUser --password=$mysqlPassword
 
 # Update DVWA config
 $confFile = "$sitePath\config\config.inc.php"
