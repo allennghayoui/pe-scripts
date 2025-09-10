@@ -101,6 +101,7 @@ Copy-Item $dvwaSrc $sitePath -Recurse -Force
 
 # Point IIS Default Web Site to DVWA root
 Set-ItemProperty "IIS:\Sites\Default Web Site" -Name physicalPath -Value $sitePath
+Add-WebConfigurationProperty -pspath "IIS:\Sites\Default Web Site" -filter "system.webServer/defaultDocument/files" -name "." -value @{value="index.php"}
 
 # Creating MySQL Database for DVWA
 Write-Host "Creating DVWA database..." -ForegroundColor Cyan
@@ -121,19 +122,51 @@ $sql | & $mysqlexe -u $mysqlUser --password=$mysqlPassword
 # Update DVWA config
 $confFile = "$sitePath\config\config.inc.php"
 
-if ($DvwaUser -and $DvwaPassword)
+(Get-Content "C:\inetpub\wwwroot\dvwa\config\config.inc.php.dist") | Set-Content $confFile
+
+# Change permissions for IIS_IUSRS user (add write permissions)
+$folders = @(
+	"C:\inetpub\wwwroot\dvwa\config",
+	"C:\inetpub\wwwroot\dvwa\hackable\uploads"
+)
+
+foreach ($folder in $folders)
 {
-	(Get-Content "C:\inetpub\wwwroot\dvwa\config\config.inc.php.dist") `
-		-replace "getenv('DB_USER') ?: 'dvwa'", "getenv('DB_USER') ?: '$DvwaUser'" `
-		-replace "getenv('DB_PASSWORD') ?: 'dvwa'", "getenv('DB_PASSWORD') ?: '$DvwaPassword'" | Set-Content $confFile
-} else
-{
-	(Get-Content "C:\inetpub\wwwroot\dvwa\config\config.inc.php.dist") | Set-Content $confFile
+	icacls $folder /grant "IIS_IUSRS:(OI)(CI)F" /T
 }
 
+# Call setup.php to finish setting up DVWA
+# URL to setup.php
+$setupUrl = "http://localhost/setup.php"
+
+# Get the page to extract the user_token
+$page = Invoke-WebRequest -Uri $setupUrl -UseBasicParsing
+
+# Find the hidden input named 'user_token' from InputFields
+$userTokenField = $page.InputFields | Where-Object { $_.name -eq "user_token" } | Select-Object -First 1
+
+if ($userTokenField)
+{
+	$userToken = $userTokenField.value
+} else
+{
+	throw "Could not find user_token in InputFields"
+}
+
+# Form data
+$formData = @{
+	create_db  = "Create / Reset Database"
+	user_token = $userToken
+}
+
+# Submit POST request
+Invoke-WebRequest -Uri $setupUrl -Method POST -Body $formData -UseBasicParsing
+
+Write-Host "[*] Finished setting up DVWA." -ForegroundColor Cyan
+
 # Restarting IIS
-Write-Host "Restarting IIS..." -ForegroundColor Cyan
+Write-Host "[*] Restarting IIS..." -ForegroundColor Cyan
 iisreset
 
-Write-Host "DVWA is ready! Browse to http://localhost/" -ForegroundColor Green
-Write-Host "DVWA credentials: admin / password" -ForegroundColor Green
+Write-Host "[+] DVWA is ready! Browse to http://localhost/" -ForegroundColor Green
+Write-Host "[+] DVWA credentials: admin / password" -ForegroundColor Green
