@@ -41,8 +41,8 @@ if (-not (Get-Module -ListAvailable -Name WebAdministration))
 Import-Module WebAdministration
 #Remove-WebHandler -Name "PHP_via_FastCGI" -ErrorAction SilentlyContinue
 #New-WebHandler -Path "*.php" -Verb "*" -Modules "FastCgiModule" -ScriptProcessor $phpCgiPath -Name "PHP_via_FastCGI"
-Add-WebConfiguration -pspath "IIS:\Sites\Default Web Site" -filter "system.webServer/handlers" -value @{name="PHP_via_FastCGI"; path="*.php"; verb="*"; modules="FastCgiModule"; scriptProcessor=$phpCgiPath; resourceType="Either"}
-Add-Webconfiguration 'system.webserver/fastcgi' -value @{ 'fullPath' = $phpCgiPath }
+Add-WebConfigurationProperty -pspath "IIS:\Sites\Default Web Site" -filter "system.webServer/handlers" -value @{name="PHP_via_FastCGI"; path="*.php"; verb="*"; modules="FastCgiModule"; scriptProcessor=$phpCgiPath; resourceType="Either"}
+Add-WebconfigurationProperty 'system.webserver/fastcgi' -value @{ 'fullPath' = $phpCgiPath }
 Add-WebConfigurationProperty -pspath "IIS:\Sites\Default Web Site" -filter "system.webServer/defaultDocument/files" -name "." -value @{value="index.php"}
 
 $phpIni = "$phpPath\php.ini"
@@ -59,8 +59,11 @@ Add-Content -Path $phpIni -Value @(
 
 Write-Host "[*] PHP set up completed." -ForegroundColor Cyan
 
-# Install MySQL
+# Reset IIS
+Write-Host "[*] Resetting IIS..." -ForegroundColor Cyan
+iisreset
 
+# Install MySQL
 $mysqlPath = "C:\tools\mysql"
 $mysqlService = "MySQL"
 
