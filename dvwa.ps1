@@ -1,19 +1,17 @@
-param(
-	[Parameter(Mandatory=$false)]
-	[string]$DvwaUser,
-	[Parameter(Mandatory=$false)]
-	[string]$DvwaPassword
-)
+# Install choco package manager
+IEX((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 
 # Install PHP
 # Create PHP install directory
-$phpPath = "C:\tools\php84"
+$phpPath = "C:\tools\php"
 
 if (-not (Test-Path $phpPath))
 {
 	Write-Host "[*] Installing PHP 8.4.11 under $phpPath..." -ForegroundColor Cyan
 	choco install php --version=8.4.11 -y
 }
+
+Rename-Item -Path "C:\tools\php84" -NewName "php"
 
 if (-not (Test-Path $phpPath))
 {
@@ -50,13 +48,8 @@ if (-not (Test-Path $phpIni))
 }
 
 # Configure php.ini
-$iniContent = Get-Content $phpIni
-$iniContent = $iniContent -replace '^(;?cgi\.fix_pathinfo\s*=).*', 'cgi_fix_path_info = 1'
-$iniContent = $iniContent -replace '^(;?display_errors\s*=).*', 'display_errors = On'
-$iniContent = $iniContent -replace '^(;?allow_url_include\s*=).*', 'allow_url_include = On'
-$iniContent = $iniContent -replace '^(;?extension=mysqli\s*=).*', 'extension=mysqli'
-$iniContent = $iniContent -replace '^(;?max_execution_time\s*=).*', 'max_execution_time = 30'
-$iniContent | Set-Content $phpIni -Force
+Write-Output "extension=mysqli" >> $phpIni
+Write-Output "extension=pdo_mysql" >> $phpIni
 
 Write-Host "[*] PHP set up completed." -ForegroundColor Cyan
 
@@ -130,9 +123,12 @@ $confFile = "$sitePath\config\config.inc.php"
 
 if ($DvwaUser -and $DvwaPassword)
 {
-	(Get-Content "$confFile.dist") `
+	(Get-Content "C:\inetpub\wwwroot\dvwa\config\config.inc.php.dist") `
 		-replace "getenv('DB_USER') ?: 'dvwa'", "getenv('DB_USER') ?: '$DvwaUser'" `
 		-replace "getenv('DB_PASSWORD') ?: 'dvwa'", "getenv('DB_PASSWORD') ?: '$DvwaPassword'" | Set-Content $confFile
+} else
+{
+	(Get-Content "C:\inetpub\wwwroot\dvwa\config\config.inc.php.dist") | Set-Content $confFile
 }
 
 # Restarting IIS
@@ -140,4 +136,4 @@ Write-Host "Restarting IIS..." -ForegroundColor Cyan
 iisreset
 
 Write-Host "DVWA is ready! Browse to http://localhost/" -ForegroundColor Green
-Write-Host "DVWA credentials: $DvwaUser / $DvwaPassword" -ForegroundColor Green
+Write-Host "DVWA credentials: admin / password" -ForegroundColor Green
