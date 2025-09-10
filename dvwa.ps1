@@ -1,16 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
 param(
 	[Parameter(Mandatory=$false)]
 	[string]$DvwaUser,
