@@ -1,4 +1,5 @@
 # Install choco package manager
+Write-Host "Installing choco..." -ForegroundColor Cyan
 IEX((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 
 # Install PHP
@@ -38,8 +39,9 @@ if (-not (Get-Module -ListAvailable -Name WebAdministration))
 }
 
 Import-Module WebAdministration
-Remove-WebHandler -Name "PHP_via_FastCGI" -ErrorAction SilentlyContinue
-New-WebHandler -Path "*.php" -Verb "*" -Modules "FastCgiModule" -ScriptProcessor $phpCgiPath -Name "PHP_via_FastCGI"
+#Remove-WebHandler -Name "PHP_via_FastCGI" -ErrorAction SilentlyContinue
+#New-WebHandler -Path "*.php" -Verb "*" -Modules "FastCgiModule" -ScriptProcessor $phpCgiPath -Name "PHP_via_FastCGI"
+Add-Webconfiguration 'system.webserver/fastcgi' -value @{ 'fullPath' = $phpCgiPath }
 
 $phpIni = "$phpPath\php.ini"
 if (-not (Test-Path $phpIni))
