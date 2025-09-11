@@ -1,7 +1,3 @@
-# Install choco package manager
-Write-Host "Installing choco..." -ForegroundColor Cyan
-IEX((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-
 $tempDir = "$env:TEMP"
 
 # Install PHP
@@ -15,8 +11,6 @@ $phpPath = "C:\PHP"
 
 if (-not (Test-Path $phpPath))
 {
-	New-Item -ItemType Directory -Path $phpPath
-
 	Write-Host "[*] Installing VC_redist.x64.exe..." -ForegroundColor Cyan
 	Invoke-WebRequest -Uri $vcRedistInstallUrl -OutFile $vcRedistExe
 	Start-Process -FilePath $vcRedistExe -ArgumentList "/install", "/quiet", "/norestart" -Wait -PassThru
@@ -27,6 +21,7 @@ if (-not (Test-Path $phpPath))
 	
 	# Download PHP zip
 	Write-Host "[*] Downloading PHP zip file to $phpZip..." -ForegroundColor Cyan
+ 	New-Item -ItemType Directory -Path $phpPath | Out-Null
 	Invoke-WebRequest -Uri $phpInstallUrl -OutFile $phpZip
 
 	# Extract files into C:\PHP
