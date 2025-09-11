@@ -40,7 +40,7 @@ $mysqlService = "MySQL"
 if (-not (Test-Path $mysqlPath))
 {
 	Write-Host "[*] Installing MySQL 9.2.0 into $mysqlPath..." -ForegroundColor Cyan
-	choco install mysql --version=9.2.0 -y --ignore-checksums
+	choco install mysql --version=9.1.0 -y --ignore-checksums
 	
 	if (-not (Test-Path $mysqlPath))
 	{
@@ -92,22 +92,27 @@ if (-not $webAdministrationModuleAvailable)
 Import-Module WebAdministration
 
 # Add Application under "SERVER_NAME" > "FastCGI Settings" > "Add Application..." in IIS Manager
-Add-WebConfigurationProperty -PSPath "MACHINE/WEBROOT/APPHOST" -Filter "system.webServer/fastCgi" -Name "." -Value @{ fullPath="$phpCgiPath"; arguments="" }
+Add-WebConfigurationProperty -PSPath "MACHINE/WEBROOT/APPHOST" -Filter "system.webServer/fastCgi" -Name "." -Value @{ fullPath="$phpCgiPath"; arguments="" } -Force
 
 # Stop IIS Default Web Site
 Stop-Website "Default Web Site"
+Get-Website -Name "Default Web Site" | Select-Object Name, State
 
 # Create new IIS Site called DVWA
-New-Item "IIS:\Sites\DVWA" -bindings @{protocol="http";bindingInformation="*:80:"} -physicalPath "C:\inetpub\wwwroot\dvwa"
+New-Item "IIS:\Sites\DVWA" -bindings @{protocol="http";bindingInformation="*:80:"} -physicalPath "C:\inetpub\wwwroot\dvwa" -Force
+Start-Sleep -Seconds 5
 
 # Start 'DVWA' site if not started
 Start-Website "DVWA"
 
+Get-Website -Name "Default Web Site" | Select-Object Name, State
+Get-Website -Name "DVWA" | Select-Object Name, State
+
 # Add Module Mapping under "SERVER_NAME" > "Sites" > "Default Web Site" > "Handler Mappings" > "Add Module Mapping..." in IIS Manager
-New-WebHandler -Name "PHP" -Path "*.php" -Verb "*" -Modules "FastCgiModule" -ResourceType "File" -PSPath "IIS:\Sites\DVWA"
+New-WebHandler -Name "PHP" -Path "*.php" -Verb "*" -Modules "FastCgiModule" -ResourceType "File" -PSPath "IIS:\Sites\DVWA" -Force
 
 # Add "index.php" as Default Document under "SERVER_NAME" > "Default Document" > "Add..." in IIS Manager
-Add-WebConfigurationProperty -PSPath "MACHINE/WEBROOT/APPHOST" -Filter "system.webServer/defaultDocument/files" -Name "." -Value @{ value="index.php" }
+Add-WebConfigurationProperty -PSPath "MACHINE/WEBROOT/APPHOST" -Filter "system.webServer/defaultDocument/files" -Name "." -Value @{ value="index.php" } -Force
 
 # Update DVWA config
 $dvwaPhpConfig = "$dvwaSitePath\config\config.inc.php"
@@ -157,7 +162,7 @@ GRANT ALL PRIVILEGES ON dvwa.* TO 'dvwa'@'localhost';
 FLUSH PRIVILEGES;
 "@
 
-$sql | & $mysqlExe -u $rootUser --password=$rootPass
+$sql | & $mysqlExe -u $mySqlUser --password=$mySqlPassword
 
 # Send Request to '/setup.php' to finish DVWA setup.
 $setupUrl = "http://localhost/setup.php"
