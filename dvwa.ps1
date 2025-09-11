@@ -91,25 +91,30 @@ if (-not $webAdministrationModuleAvailable)
 
 Import-Module WebAdministration
 
-# Add Application under "SERVER_NAME" > "FastCGI Settings" > "Add Application..." in IIS Manager
-Add-WebConfigurationProperty -PSPath "MACHINE/WEBROOT/APPHOST" -Filter "system.webServer/fastCgi" -Name "." -Value @{ fullPath="$phpCgiPath"; arguments="" } -Force
-
 # Stop IIS Default Web Site
 Stop-Website "Default Web Site"
-Get-Website -Name "Default Web Site" | Select-Object Name, State
+Remove-Item "IIS:\Sites\Default Web Site" -Recurse
 
 # Create new IIS Site called DVWA
 New-Item "IIS:\Sites\DVWA" -bindings @{protocol="http";bindingInformation="*:80:"} -physicalPath "C:\inetpub\wwwroot\dvwa" -Force
-Start-Sleep -Seconds 5
+
+# Wait until DVWA website starts
+do {
+	$state = (Get-Website -Name "DVWA").State
+	Start-Sleep -Seconds 1
+} while ($state -ne "Started")
 
 # Start 'DVWA' site if not started
 Start-Website "DVWA"
+
+# Add Application under "SERVER_NAME" > "FastCGI Settings" > "Add Application..." in IIS Manager
+Add-WebConfigurationProperty -PSPath "MACHINE/WEBROOT/APPHOST" -Filter "system.webServer/fastCgi" -Name "." -Value @{ fullPath="$phpCgiPath"; arguments="" } -Force
 
 Get-Website -Name "Default Web Site" | Select-Object Name, State
 Get-Website -Name "DVWA" | Select-Object Name, State
 
 # Add Module Mapping under "SERVER_NAME" > "Sites" > "Default Web Site" > "Handler Mappings" > "Add Module Mapping..." in IIS Manager
-New-WebHandler -Name "PHP" -Path "*.php" -Verb "*" -Modules "FastCgiModule" -ResourceType "File" -PSPath "IIS:\Sites\DVWA" -Force
+New-WebHandler -Name "PHP" -Path "*.php" -Verb "*" -Modules "FastCgiModule" -ResourceType "File" -ScriptProcessor $phpCgiPath -PSPath "IIS:\Sites\DVWA" -Force
 
 # Add "index.php" as Default Document under "SERVER_NAME" > "Default Document" > "Add..." in IIS Manager
 Add-WebConfigurationProperty -PSPath "MACHINE/WEBROOT/APPHOST" -Filter "system.webServer/defaultDocument/files" -Name "." -Value @{ value="index.php" } -Force
@@ -172,7 +177,7 @@ $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 
 $setupPage = Invoke-WebRequest -Uri $setupUrl -WebSession $session -UseBasicParsing
 
-$userToken = ($page.InputFields | Where-Object { $_.name -eq "user_token" } | Select-Object -First 1).value
+$userToken = ($setupPage.InputFields | Where-Object { $_.name -eq "user_token" } | Select-Object -First 1).value
 
 if ($null -eq $userToken)
 {
