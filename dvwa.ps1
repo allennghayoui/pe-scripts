@@ -90,19 +90,20 @@ Import-Module WebAdministration
 # Add Application under "SERVER_NAME" > "FastCGI Settings" > "Add Application..." in IIS Manager
 Add-WebConfigurationProperty -PSPath "MACHINE/WEBROOT/APPHOST" -Filter "system.webServer/fastCgi" -Name "." -Value @{ fullPath="$phpCgiPath"; arguments="" }
 
+# Stop IIS Default Web Site
+Stop-Website "Default Web Site"
+
 # Create new IIS Site called DVWA
 New-Item "IIS:\Sites\DVWA" -bindings @{protocol="http";bindingInformation="*:80:"} -physicalPath "C:\inetpub\wwwroot\dvwa"
-# Wait 3 seconds for new IIS site to run
-Start-Sleep -Seconds 3
+
+# Start 'DVWA' site if not started
+Start-Website "DVWA"
 
 # Add Module Mapping under "SERVER_NAME" > "Sites" > "Default Web Site" > "Handler Mappings" > "Add Module Mapping..." in IIS Manager
 New-WebHandler -Name "PHP" -Path "*.php" -Verb "*" -Modules "FastCgiModule" -ResourceType "File" -PSPath "IIS:\Sites\DVWA"
 
 # Add "index.php" as Default Document under "SERVER_NAME" > "Default Document" > "Add..." in IIS Manager
 Add-WebConfigurationProperty -PSPath "MACHINE/WEBROOT/APPHOST" -Filter "system.webServer/defaultDocument/files" -Name "." -Value @{ value="index.php" }
-
-# Stop IIS Default Web Site
-Stop-Website "Default Web Site"
 
 # Update DVWA config
 $dvwaPhpConfig = "$dvwaSitePath\config\config.inc.php"
@@ -117,8 +118,8 @@ if (-not (Test-Path $dvwaPhpConfig))
 # Add MySQL extensions to php.ini
 $phpIni = "$phpPath\php.ini"
 Add-Content -Path $phpIni -Value @(
-    "extension=mysqli"
-    "extension=pdo_mysql"
+	"extension=mysqli"
+	"extension=pdo_mysql"
 )
 
 Write-Host "[*] PHP set up completed." -ForegroundColor Cyan
