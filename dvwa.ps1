@@ -4,52 +4,34 @@ IEX((New-Object System.Net.WebClient).DownloadString('https://community.chocolat
 
 # Install PHP
 # Create PHP install directory
-$phpPath = "C:\tools\php"
+$phpPath = "C:\tools\php84"
 
 if (-not (Test-Path $phpPath))
 {
 	Write-Host "[*] Installing PHP 8.4.11 under $phpPath..." -ForegroundColor Cyan
-	choco install php --version=8.4.11 -y
-}
-
-Rename-Item -Path "C:\tools\php84" -NewName "php"
-
-if (-not (Test-Path $phpPath))
+	choco install php --version=8.4.11 --package-parameters='"/InstallDir:$phpPath"' -y
+	
+	if (-not (Test-Path $phpPath))
+	{
+		Write-Error "[-] Failed to install PHP."
+		exit 1
+	}
+	
+	Write-Host "[*] PHP 8.4.11 installed and added to PATH environment variable." -ForegroundColor Cyan
+} else
 {
-	Write-Error "[-] Failed to install PHP."
-	exit 1
+	Writ-Host "[*] $phpPath already exists. Skipping installation..." -ForegroundColor Cyan
+	Write-Host "[*] If you think this is a mistake, delete $phpPath and try again." -ForegroundColor Red
 }
-
-Write-Host "[*] PHP 8.4.11 installed." -ForegroundColor Cyan
 
 # Setup IIS to support PHP with FastCGI
 # Check if php-cgi.exe exists
 $phpCgiPath = "$phpPath\php-cgi.exe"
 if (-not (Test-Path $phpCgiPath))
 {
-	Write-Error "[-] php-cgi.exe not found."
+	Write-Error "[-] $phpCgiPath not found. Check your PHP installation."
 	exit 1
 }
-
-
-
-$phpIni = "$phpPath\php.ini"
-if (-not (Test-Path $phpIni))
-{
-	Copy-Item "$phpPath\php.ini-production" $phpIni -Force
-}
-
-# Configure php.ini
-Add-Content -Path $phpIni -Value @(
-    "extension=mysqli"
-    "extension=pdo_mysql"
-)
-
-Write-Host "[*] PHP set up completed." -ForegroundColor Cyan
-
-# Reset IIS
-Write-Host "[*] Resetting IIS..." -ForegroundColor Cyan
-iisreset
 
 # Install MySQL
 $mysqlPath = "C:\tools\mysql"
@@ -88,62 +70,62 @@ Invoke-WebRequest -Uri "https://github.com/digininja/DVWA/archive/master.zip" -O
 Expand-Archive -Path $dvwaZip -DestinationPath $env:TEMP -Force
 $dvwaSrc = "$env:TEMP\DVWA-master"
 
-$sitePath = "C:\inetpub\wwwroot\dvwa"
-if ((Test-Path $sitePath))
+$dvwaSiteDir = "C:\inetpub\wwwroot\dvwa"
+if ((Test-Path $dvwaSitePath))
 {
-	Remove-Item -Path $sitePath -Recurse -Force
+	Remove-Item -Path $dvwaSitePath -Recurse -Force
 }
 
-Copy-Item $dvwaSrc $sitePath -Recurse -Force
+Copy-Item $dvwaSrc $dvwaSitePath -Recurse -Force
 
-# Point IIS Default Web Site to DVWA root
-Set-ItemProperty "IIS:\Sites\Default Web Site" -Name physicalPath -Value $sitePath
-# Check if WebAdministration module is available
-if (-not (Get-Module -ListAvailable -Name WebAdministration))
+$webAdministrationModuleAvailable = Get-Module -ListAvailable -Name WebAdministration
+if (-not $webAdministrationModuleAvailable)
 {
-	Write-Error "[-] WebAdministration module not found."
+	Write-Error "[!] WebAdministration module not available. Please install it and try again."
 	exit 1
 }
 
 Import-Module WebAdministration
-Start-Sleep -Seconds 5
-# Add PHP FastCGI handler
-Add-WebConfigurationProperty -pspath "IIS:\Sites\Default Web Site" `
-  -filter "system.webServer/handlers" -name "." `
-  -value @{name="PHP_via_FastCGI"; path="*.php"; verb="*"; modules="FastCgiModule"; scriptProcessor=$phpCgiPath; resourceType="Either"}
 
-# Register PHP in FastCGI
-Add-WebConfigurationProperty -pspath 'MACHINE/WEBROOT/APPHOST' `
-  -filter "system.webServer/fastCgi" -name "." `
-  -value @{ fullPath = $phpCgiPath }
+# Add Application under "SERVER_NAME" > "FastCGI Settings" > "Add Application..." in IIS Manager
+Add-WebConfigurationProperty -PSPath "MACHINE/WEBROOT/APPHOST" -Filter "system.webServer/fastCgi" -Name "." -Value @{ fullPath="$phpCgiPath"; arguments="" }
 
-# Add index.php as default document
-Add-WebConfigurationProperty -pspath "IIS:\Sites\Default Web Site" `
-  -filter "system.webServer/defaultDocument/files" -name "." `
-  -value @{value="index.php"}
+# Create new IIS Site called DVWA
+New-Item "IIS:\Sites\DVWA" -bindings @{protocol="http";bindingInformation="*:80:"} -physicalPath "C:\inetpub\wwwroot\dvwa"
+# Wait 3 seconds for new IIS site to run
+Start-Sleep -Seconds 3
 
-# Creating MySQL Database for DVWA
-Write-Host "Creating DVWA database..." -ForegroundColor Cyan
+# Add Module Mapping under "SERVER_NAME" > "Sites" > "Default Web Site" > "Handler Mappings" > "Add Module Mapping..." in IIS Manager
+New-WebHandler -Name "PHP" -Path "*.php" -Verb "*" -Modules "FastCgiModule" -ResourceType "File" -PSPath "IIS:\Sites\DVWA"
 
-$mysqlUser = "root"
-$mysqlPassword = ""
-$mysqlexe = "$mysqlPath\current\bin\mysql.exe"
+# Add "index.php" as Default Document under "SERVER_NAME" > "Default Document" > "Add..." in IIS Manager
+Add-WebConfigurationProperty -PSPath "MACHINE/WEBROOT/APPHOST" -Filter "system.webServer/defaultDocument/files" -Name "." -Value @{ value="index.php" }
 
-$sql = @"
-CREATE DATABASE IF NOT EXISTS dvwa;
-CREATE USER IF NOT EXISTS 'dvwa'@'localhost' IDENTIFIED BY 'p@ssw0rd';
-CREATE USER IF NOT EXISTS 'dvwa'@'127.0.0.1' IDENTIFIED BY 'p@ssw0rd';
-GRANT ALL PRIVILEGES ON dvwa.* TO 'dvwa'@'localhost';
-GRANT ALL PRIVILEGES ON dvwa.* TO 'dvwa'@'127.0.0.1';
-FLUSH PRIVILEGES;
-"@
-
-$sql | & $mysqlExe -u $rootUser --password=$rootPass
+# Stop IIS Default Web Site
+Stop-Website "Default Web Site"
 
 # Update DVWA config
-$confFile = "$sitePath\config\config.inc.php"
+$dvwaPhpConfig = "$dvwaSitePath\config\config.inc.php"
+Copy-Item "$dvwaPhpConfig.dist" $dvwaPhpConfig -Force
 
-(Get-Content "C:\inetpub\wwwroot\dvwa\config\config.inc.php.dist") | Set-Content $confFile
+if (-not (Test-Path $dvwaPhpConfig))
+{
+	Write-Error "[!] Error creating $dvwaPhpConfig."
+	exit 1
+}
+
+# Add MySQL extensions to php.ini
+$phpIni = "$phpPath\php.ini"
+Add-Content -Path $phpIni -Value @(
+    "extension=mysqli"
+    "extension=pdo_mysql"
+)
+
+Write-Host "[*] PHP set up completed." -ForegroundColor Cyan
+
+# Reset IIS
+Write-Host "[*] Resetting IIS..." -ForegroundColor Cyan
+iisreset
 
 # Change permissions for IIS_IUSRS user (add write permissions)
 $folders = @(
@@ -156,23 +138,36 @@ foreach ($folder in $folders)
 	icacls $folder /grant "IIS_IUSRS:(OI)(CI)F" /T
 }
 
-iisreset
+# Create MySQL database for DVWA
+Write-Host "[*] Creating MySQL database 'dvwa'..." -ForegroundColor Cyan
 
-# Call setup.php to finish setting up DVWA
+$mysqlUser = "root"
+$mysqlPassword = ""
+$mysqlexe = "$mysqlPath\current\bin\mysql.exe"
+
+$sql = @"
+CREATE DATABASE IF NOT EXISTS dvwa;
+CREATE USER IF NOT EXISTS 'dvwa'@'localhost' IDENTIFIED BY 'p@ssw0rd';
+GRANT ALL PRIVILEGES ON dvwa.* TO 'dvwa'@'localhost';
+FLUSH PRIVILEGES;
+"@
+
+$sql | & $mysqlExe -u $rootUser --password=$rootPass
+
+# Send Request to '/setup.php' to finish DVWA setup.
 $setupUrl = "http://localhost/setup.php"
 
-# Get the page to extract the user_token
-$page = Invoke-WebRequest -Uri $setupUrl -UseBasicParsing
+# Create WebSession
+$session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 
-# Find the hidden input named 'user_token' from InputFields
-$userTokenField = $page.InputFields | Where-Object { $_.name -eq "user_token" } | Select-Object -First 1
+$setupPage = Invoke-WebRequest -Uri $setupUrl -WebSession $session -UseBasicParsing
 
-if ($userTokenField)
+$userToken = ($page.InputFields | Where-Object { $_.name -eq "user_token" } | Select-Object -First 1).value
+
+if ($null -eq $userToken)
 {
-	$userToken = $userTokenField.value
-} else
-{
-	throw "Could not find user_token in InputFields"
+	Write-Error "[!] Failed to get 'user_token' from '/setup.php'."
+	exit 1
 }
 
 # Form data
@@ -181,11 +176,10 @@ $formData = @{
 	user_token = $userToken
 }
 
-# Submit POST request
-$response = Invoke-WebRequest -Uri $setupUrl -Method POST -Body $formData -UseBasicParsing
-
-Write-Host $response.Content
+# Submit POST request to '/setup.php'
+$response = Invoke-WebRequest -Uri $setupUrl -Method POST -Body $formData -WebSession $session -UseBasicParsing
 
 Write-Host "[*] Finished setting up DVWA." -ForegroundColor Cyan
+
 Write-Host "[+] DVWA is ready! Browse to http://localhost/" -ForegroundColor Green
 Write-Host "[+] DVWA credentials: admin / password" -ForegroundColor Green
