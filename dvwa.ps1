@@ -9,7 +9,7 @@ $phpPath = "C:\tools\php84"
 if (-not (Test-Path $phpPath))
 {
 	Write-Host "[*] Installing PHP 8.4.11 under $phpPath..." -ForegroundColor Cyan
-	choco install php --version=8.4.11 --package-parameters='"/InstallDir:$phpPath"' -y
+	choco install php --version=8.4.11 --package-parameters="/InstallDir:$phpPath" -y
 	
 	if (-not (Test-Path $phpPath))
 	{
