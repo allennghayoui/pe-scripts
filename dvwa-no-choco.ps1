@@ -9,7 +9,7 @@ $tempDir = "$env:TEMP"
 #$phpPath = "C:\tools\"
 $phpInstallUrl = "https://windows.php.net/downloads/releases/php-8.4.12-nts-Win32-vs17-x64.zip"
 $phpZip = "$tempDir\php.zip"
-$vcRedistExe = "https://aka.ms/vs/17/release/VC_redist.x64.exe"
+$vcRedistInstallUrl = "https://aka.ms/vs/17/release/VC_redist.x64.exe"
 $vcRedistExe = "$tempDir\VC_redist.x64.exe"
 $phpPath = "C:\PHP"
 
@@ -18,6 +18,7 @@ if (-not (Test-Path $phpPath))
 	New-Item -ItemType Directory -Path $phpPath
 
 	Write-Host "[*] Installing VC_redist.x64.exe..." -ForegroundColor Cyan
+	Invoke-WebRequest -Uri $vcRedistInstallUrl -OutFile $vcRedistExe
 	Start-Process -FilePath $vcRedistExe -ArgumentList "/install", "/quiet", "/norestart" -Wait -PassThru
 
 	Write-Host "[*] Installing PHP $phpPath..." -ForegroundColor Cyan
