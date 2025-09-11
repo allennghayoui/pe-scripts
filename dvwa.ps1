@@ -9,7 +9,7 @@ $phpPath = "C:\tools\php84"
 if (-not (Test-Path $phpPath))
 {
 	Write-Host "[*] Installing PHP 8.4.11 under $phpPath..." -ForegroundColor Cyan
-	choco install php --version=8.4.11 --package-parameters="/InstallDir:$phpPath" -y
+	choco install php --version=8.4.11 --package-parameters="/InstallDir:$phpPath" -y --ignore-checksums
 	
 	if (-not (Test-Path $phpPath))
 	{
@@ -20,8 +20,8 @@ if (-not (Test-Path $phpPath))
 	Write-Host "[*] PHP 8.4.11 installed and added to PATH environment variable." -ForegroundColor Cyan
 } else
 {
-	Writ-Host "[*] $phpPath already exists. Skipping installation..." -ForegroundColor Cyan
-	Write-Host "[*] If you think this is a mistake, delete $phpPath and try again." -ForegroundColor Red
+	Write-Host "[*] $phpPath already exists. Skipping installation..." -ForegroundColor Cyan
+	Write-Host "[*] If you think this is a mistake, delete $phpPath and try again." -ForegroundColor Cyan
 }
 
 # Setup IIS to support PHP with FastCGI
@@ -40,16 +40,20 @@ $mysqlService = "MySQL"
 if (-not (Test-Path $mysqlPath))
 {
 	Write-Host "[*] Installing MySQL 9.2.0 into $mysqlPath..." -ForegroundColor Cyan
-	choco install mysql --version=9.2.0 -y
-}
-
-if (-not (Test-Path $mysqlPath))
+	choco install mysql --version=9.2.0 -y --ignore-checksums
+	
+	if (-not (Test-Path $mysqlPath))
+	{
+		Write-Error "[-] Failed to install MySQL."
+		exit 1
+	}
+	
+	Write-Host "[*] MySQL 9.2.0 installed." -ForegroundColor Cyan
+} else
 {
-	Write-Error "[-] Failed to install MySQL."
-	exit 1
+	Write-Host "[*] $mysqlPath already exists. Skipping installation..." -ForegroundColor Cyan
+	Write-Host "[*] If you think this is a mistake, delete $mysqlPath and try again." -ForegroundColor Cyan
 }
-
-Write-Host "[*] MySQL installed." -ForegroundColor Cyan
 
 $mysqlServiceStatus = (Get-Service -Name $mysqlService).Status
 
@@ -70,7 +74,7 @@ Invoke-WebRequest -Uri "https://github.com/digininja/DVWA/archive/master.zip" -O
 Expand-Archive -Path $dvwaZip -DestinationPath $env:TEMP -Force
 $dvwaSrc = "$env:TEMP\DVWA-master"
 
-$dvwaSiteDir = "C:\inetpub\wwwroot\dvwa"
+$dvwaSitePath = "C:\inetpub\wwwroot\dvwa"
 if ((Test-Path $dvwaSitePath))
 {
 	Remove-Item -Path $dvwaSitePath -Recurse -Force
