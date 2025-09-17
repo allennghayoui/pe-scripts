@@ -198,3 +198,5 @@ Write-Host "[*] Finished setting up DVWA." -ForegroundColor Cyan
 
 Write-Host "[+] DVWA is ready! Browse to http://localhost/" -ForegroundColor Green
 Write-Host "[+] DVWA credentials: admin / password" -ForegroundColor Green
+
+exit 0
