@@ -25,3 +25,5 @@ Write-Host "[*] IIS installed." -ForegroundColor Cyan
 
 # Reset IIS to apply changes
 iisreset
+
+exit 0
