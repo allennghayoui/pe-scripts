@@ -9,23 +9,48 @@
 
 ############################################################################
 
-$tempPath = "$env:TEMP"
+param(
+	[Parameter(Mandatory=$true)]
+	[string] $InstanceName,
+	[Parameter(Mandatory=$true)]
+	[string] $SqlSvcUsername,
+	[Parameter(Mandatory=$true)]
+	[string] $SqlSvcPassword,
+	[Parameter(Mandatory=$true)]
+	[string] $SqlSysAdminsGroup,
+	[Parameter(Mandatory=$false)]
+	[ValidateSet("Automatic", "Manual", "Disabled")]
+	[string] $SqlSvcStartupType = "Automatic"
+)
 
-# Download SQL Server Installer
+# Paths
+$tempPath = "$env:TEMP"
 $sqlServerSetupPath = "$tempPath\sqlserver.exe"
 
-Write-Host "Downloading SQL Server Installer into $sqlServerSetupPath..." -ForegroundColor Cyan
+# Download SQL Server Installer
+Write-Host "[*] Downloading SQL Server Installer into $sqlServerSetupPath..." -ForegroundColor Cyan
 Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?linkid=2216019&culture=en-us" -OutFile $sqlServerSetupPath -UseBasicParsing
 
-Write-Host "Installing MSSQL..." -ForegroundColor Cyan
-# Questions
-# 1. Should the user specify the SQLSVCACCOUNT and password + SQL Admins group?
-& "$sqlServerSetupPath" /Quite /IAcceptSqlServerLicenseTerms /Action=Install `
+Write-Host "[*] Installing SQL Server Express..." -ForegroundColor Cyan
+
+& "$sqlServerSetupPath" /Quiet /IAcceptSqlServerLicenseTerms /Action=Install `
 	/InstallPath="C:\Program Files\Microsoft SQL Server" `
-	/INSTANCENAME=MSSQLSERVER `
-	/SQLSVCACCOUNT="MYDOMAIN\sql_svc" /SQLSVCPASSWORD="P@ssw0rd" /SQLSVCSTARTUPTYPE="Automatic" `
-	/SQLSYSADMINACCOUNTS="MYDOMAIN\SQL Admins" `
+	/INSTANCENAME=$InstanceName `
+	/SQLSVCACCOUNT="$SqlSvcUsername" /SQLSVCPASSWORD="$SqlSvcPassword" /SQLSVCSTARTUPTYPE="$SqlSvcStartupType" `
+	/SQLSYSADMINACCOUNTS="$SqlSysAdminsGroup" `
 	/TCPENABLED=1
 
-Write-Host "Removing $sqlServerSetupPath..." -ForegroundColor Cyan
+Write-Host "[*] Removing $sqlServerSetupPath..." -ForegroundColor Cyan
+
 Remove-Item -Path $sqlServerSetupPath -Force
+
+$sqlServerSetupExists = Test-Path -Path $sqlServerSetupPath
+if ($sqlServerSetupExists)
+{
+	Write-Error "[!] Failed to remove $sqlServerSetupPath."
+	exit 1
+}
+
+Write-Host "[*] Removed $sqlServerSetupPath." -ForegroundColor Cyan
+
+exit 0
