@@ -28,6 +28,13 @@ if (-not $isSqlServerModuleAvailable)
 
 Import-Module SqlServer
 
+$isSqlServerModuleLoaded = (Get-Module -Name SqlServer).Name
+if (-not $isSqlServerModuleLoaded)
+{
+	Write-Error "[!] Failed to load SqlServer PowerShell module."
+	exit 1
+}
+
 # Check if link already exists between the local instance and the remote instance
 # !!!! Executing the T-SQL below requires SQL sysadmin privileges !!!!
 Write-Host "[*] Checking if link $LinkName exists for $LocalServerInstance and $RemoteServerInstance..." -ForegroundColor Cyan
