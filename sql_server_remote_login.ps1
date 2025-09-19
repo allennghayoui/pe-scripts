@@ -99,7 +99,7 @@ EXEC sp_serveroption N'$LinkName', 'data access', 'True';
 
 Write-Host "[*] Adding local login mapping to stored remote credentials..." -ForegroundColor Cyan
 
-# Check if a user exists with the specified RemoteSqlUsername
+# Check if RemoteSqlUsername exists, if not create it.
 $sqlSelectUserQuery = @"
 SELECT COUNT(*) AS UserExists
 FROM sys.server_principals
@@ -118,8 +118,28 @@ try
 
 if ($selectUserResult.UserExists -eq 0)
 {
-	Write-Error "[!] Remote user $RemoteSqlUsername does not exist on $RemoteServerInstance."
-	exit 1
+	Write-Host "[*] Remote user $RemoteSqlUsername does not exist on $RemoteServerInstance." -ForegroundColor Cyan
+	Write-Host "[*] Creating SQL user $RemoteSqlUsername on $RemoteServerInstance..." -ForegroundColor Cyan
+
+	$sqlCreateUserQuery = @"
+IF NOT EXISTS(
+	SELECT 1
+	FROM sys.server_principals
+	WHERE name = N'$RemoteSqlUsername'
+)
+BEGIN
+	CREATE LOGIN [$RemoteSqlUsername] WITH PASSWORD = N'$RemoteSqlPassword', CHECK_POLICY = ON;
+END
+"@
+	try
+	{
+		Invoke-Sqlcmd -ServerInstance $RemoteServerInstance -Query $sqlCreateUserQuery -ErrorAction Stop
+	} catch
+	{
+		Write-Error "[!] Failed to create user $RemoteSqlUsername on $RemoteServerInstance."
+		Write-Error $_.Exception.Message
+		exit 1
+	}
 }
 
 # Map local login to remote SQL credentials
