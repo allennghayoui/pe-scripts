@@ -1,12 +1,12 @@
 param(
 	[Paramater(Mandatory=$true)]
-	[string] $LocalServerInstance,
-	[Parameter(Mandatory=$true)]
 	[string] $LinkName,
 	[Parameter(Mandatory=$true)]
-	[string] $RemoteServerInstance,
+	[string] $LocalServerInstance, # use DOMAIN\instance
 	[Parameter(Mandatory=$true)]
 	[string] $LocalUsername,
+	[Parameter(Mandatory=$true)]
+	[string] $RemoteServerInstance, # use DOMAIN\instance
 	[Parameter(Mandatory=$true)]
 	[string] $RemoteSqlUsername,
 	[Parameter(Mandatory=$true)]
@@ -128,7 +128,7 @@ IF NOT EXISTS(
 	WHERE name = N'$RemoteSqlUsername'
 )
 BEGIN
-	CREATE LOGIN [$RemoteSqlUsername] WITH PASSWORD = N'$RemoteSqlPassword', CHECK_POLICY = ON;
+	CREATE LOGIN [$RemoteSqlUsername] WITH PASSWORD = N'$RemoteSqlPassword', CHECK_POLICY = OFF;
 END
 "@
 	try
