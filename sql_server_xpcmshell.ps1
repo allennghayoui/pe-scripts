@@ -16,6 +16,14 @@ if (-not $isSqlServerModuleAvailable)
 
 Import-Module SqlServer
 
+$isSqlServerModuleLoaded = (Get-Module -Name SqlServer).Name
+if (-not $isSqlServerModuleLoaded)
+{
+	Write-Error "[!] Failed to load SqlServer PowerShell module."
+	exit 1
+}
+
+# Enable xp_cmdshell on target SQL Server instance
 $tsqlEnableXpCmdShell = @"
 EXEC sp_configure 'show advance options', 1;
 RECONFIGURE;
