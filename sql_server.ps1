@@ -31,14 +31,50 @@ $sqlServerSetupPath = "$tempPath\sqlserver.exe"
 Write-Host "[*] Downloading SQL Server Installer into $sqlServerSetupPath..." -ForegroundColor Cyan
 Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?linkid=2216019&culture=en-us" -OutFile $sqlServerSetupPath -UseBasicParsing
 
+if ($SqlSvcUsername -match ".*\\.*")
+{
+	$domain, $user = $SqlSvcUsername.Split("\")	
+} else
+{
+	Write-Error "[!] $SqlSvcUsername does not specify the domain 'DOMAIN\username'."
+	exit 1
+}
+
+# Check if SQL Service account exists
+$existingUser = Get-ADUser -Filter { SamAccountName -eq $SqlSvcUsername }-Server $domain -ErrorAction Stop
+	
+if (-not $existingUser)
+{
+	Write-Host "[*] $SqlSvcUsername does not exist. Creating user..." -ForegroundColor Cyan
+
+	$SecurePassword = $SqlSvcPassword | ConvertTo-SecureString -AsPlainText -Force
+	try {
+		New-ADUser -Name $SqlSvcUsername -SamAccountName $SqlSvcUsername -AccountPassword $SecurePassword -Enabled $true -PasswordNeverExpires $true -Description "SQL Server Service Account" -ErrorAction Stop
+	} catch {
+		Write-Error "[!] Failed to create user $SqlSvcUsername."
+		Write-Error $_.Exception.Message
+		exit 1
+	}
+}
+
 Write-Host "[*] Installing SQL Server Express..." -ForegroundColor Cyan
 
-& "$sqlServerSetupPath" /Quiet /IAcceptSqlServerLicenseTerms /Action=Install `
-	/InstallPath="C:\Program Files\Microsoft SQL Server" `
-	/INSTANCENAME=$InstanceName `
-	/SQLSVCACCOUNT="$SqlSvcUsername" /SQLSVCPASSWORD="$SqlSvcPassword" /SQLSVCSTARTUPTYPE="$SqlSvcStartupType" `
-	/SQLSYSADMINACCOUNTS="$SqlSysAdminsGroup" `
-	/TCPENABLED=1
+$iniContent = @"
+[OPTIONS]
+ACTION="Install"
+FEATURES=SQL
+INSTANCENAME="$InstanceName"
+SQLSVCACCOUNT="$SqlSvcUsername"
+SQLSVCPASSWORD="$SqlSvcPassword"
+SQLSVCSTARTUPTYPE="$SqlSvcStartupType"
+TCPENABLED=1
+"@
+
+$sqlServerConfigFilePath = "$tempPath\sqlserverconfig.ini"
+
+$iniContent | Out-File -FilePath $sqlServerConfigFilePath
+
+Start-Process -FilePath $sqlServerSetupPath -ArgumentList "/CONFIGURATIONFILE=$sqlServerConfigFilePath /INSTALLPATH=`"C:\Program Files\Microsoft SQL Server`" /QUIET /IACCEPTSQLSERVERLICENSETERMS" -Wait
 
 Write-Host "[*] Removing $sqlServerSetupPath..." -ForegroundColor Cyan
 
