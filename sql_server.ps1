@@ -20,19 +20,16 @@ param(
 	[string] $SqlSvcPassword,
 	[Parameter(Mandatory=$true)]
 	[string[]] $SqlSysAdminAccounts,
+	[Parameter(Mandatory=$true)]
+	[switch] $DomainJoined,
 	[Parameter(Mandatory=$false)]
 	[ValidateSet("Automatic", "Manual", "Disabled")]
 	[string] $SqlSvcStartupType = "Automatic"
 )
 
-# Paths
-$tempPath = "$env:TEMP"
-$sqlServerSetupPath = "$tempPath\sqlserver.exe"
-$sqlInstallPath = "C:\Program Files\Microsoft SQL Server"
-$sqlServerConfigFilePath = "$tempPath\sqlserverconfig.ini"
-
-# Clean up function
-function CleanUp {
+# Cleans up useless files after the setup
+function CleanUp
+{
 	Write-Host "[*] Removing $sqlServerSetupPath..." -ForegroundColor Cyan
 	Remove-Item -Path $sqlServerSetupPath -Force
 
@@ -42,6 +39,8 @@ function CleanUp {
 		Write-Error "[!] Failed to remove $sqlServerSetupPath."
 		exit 1
 	}
+	
+	Write-Host "[*] Removed $sqlServerSetupPath." -ForegroundColor Cyan
 	
 	Write-Host "[*] Removing $sqlServerConfigFilePath..." -ForegroundColor Cyan
 	Remove-Item -Path $sqlServerConfigFilePath -Force
@@ -56,8 +55,8 @@ function CleanUp {
 	Write-Host "[*] Removed $sqlServerConfigFilePath." -ForegroundColor Cyan
 }
 
-# Check if user is in 'DOMAIN\user' format
-function CheckDomainIncluded
+# Checks if user is in 'DOMAIN\user' format
+function CheckForUsernamePrefix
 {
 	param(
 		[Parameter(Mandatory=$true)]
@@ -72,8 +71,8 @@ function CheckDomainIncluded
 	return $true
 }
 
-# Split domain from username
-function SplitDomainFromName
+# Splits domain from username
+function SplitPrefixFromUsername
 {
 	param(
 		[Parameter(Mandatory=$true)]
@@ -83,6 +82,13 @@ function SplitDomainFromName
 	$domain, $name = $NameToSplit.Split("\")
 	return $domain, $name	
 }
+
+# Variables
+$tempPath = "$env:TEMP"
+$sqlServerSetupPath = "$tempPath\sqlserver.exe"
+$sqlInstallPath = "C:\Program Files\Microsoft SQL Server"
+$sqlServerConfigFilePath = "$tempPath\sqlserverconfig.ini"
+$sqlSvcAccount = $SqlSvcUsername
 
 $isActiveDirectoryModuleAvailable = Get-Module -ListAvailable -Name ActiveDirectory -ErrorAction SilentlyContinue
 if (-not $isActiveDirectoryModuleAvailable)
@@ -99,53 +105,115 @@ if (-not $isActiveDirectoryModuleLoaded)
 	exit 1
 }
 
-# Check the SQL service username validity
-$sqlSvcUsernameWithoutDomain = $SqlSvcUsername
-if ((CheckDomainIncluded($SqlSvcUsername)))
+if ($DomainJoined.IsPresent)
 {
-	$sqlSvcDomain, $sqlSvcUsernameWithoutDomain = SplitDomainFromName($SqlSvcUsername)
-}
+	$sqlSvcUsernameWithoutPrefix = $SqlSvcUsername
+	# Check the SQL service username validity
+	if ((CheckForUsernamePrefix -NameToCheck $SqlSvcUsername))
+	{
+		$sqlSvcDomain, $sqlSvcUsernameWithoutPrefix = SplitPrefixFromUsername -NameToSplit $SqlSvcUsername
+	}
 
-# Check if SQL Service account exists
-$sqlUserUpn = "$sqlSvcUsernameWithoutDomain@$FQDN"
-$existingUser = Get-ADUser -Filter { UserPrincipalName -eq $sqlUserUpn }
+	# Check if SQL Service account exists
+	$sqlSvcUpn = "$sqlSvcUsernameWithoutPrefix@$FQDN"
+	$sqlSvcAccount = $sqlSvcUpn
 	
-if (-not $existingUser)
-{
-	Write-Host "[*] $SqlSvcUsername does not exist. Creating user..." -ForegroundColor Cyan
+	$existingUser = Get-ADUser -Filter { UserPrincipalName -eq $sqlSvcUpn }
+	
+	if (-not $existingUser)
+	{
+		Write-Host "[*] $SqlSvcUsername does not exist. Creating user..." -ForegroundColor Cyan
 
-	$SecurePassword = $SqlSvcPassword | ConvertTo-SecureString -AsPlainText -Force
-	try {
-		New-ADUser -Name $sqlSvcUsernameWithoutDomain -SamAccountName $sqlSvcUsernameWithoutDomain -UserPrincipalName $sqlSvcUsernameWithoutDomain@$FQDN -AccountPassword $SecurePassword -Enabled $true -PasswordNeverExpires $true -Server $FQDN -Description "SQL Server Service Account" -ErrorAction Stop
-		Write-Host "[*] User '$SqlSvcUsername' created." -ForegroundColor Cyan
-	} catch {
-		Write-Error "[!] Failed to create user $SqlSvcUsername."
-		Write-Error $_.Exception.Message
-		exit 1
+		$SecurePassword = $SqlSvcPassword | ConvertTo-SecureString -AsPlainText -Force
+		try {
+			New-ADUser `
+				-Name $sqlSvcUsernameWithoutPrefix `
+				-SamAccountName $sqlSvcUsernameWithoutPrefix `
+				-UserPrincipalName $sqlSvcUpn `
+				-AccountPassword $SecurePassword `
+				-Enabled $true `
+				-PasswordNeverExpires $true `
+				-Server $FQDN `
+				-Description "SQL Server Service Account" `
+				-ErrorAction Stop
+			
+			Write-Host "[*] User created." -ForegroundColor Cyan
+		} catch {
+			Write-Error "[!] Failed to create user $SqlSvcUsername."
+			Write-Error $_.Exception.Message
+			exit 1
+		}
+	}
+} else
+{
+	$sqlSvcUsernameWithoutPrefix = $SqlSvcUsername
+	# Check the SQL service username validity
+	if ((CheckForUsernamePrefix -NameToCheck $SqlSvcUsername))
+	{
+		$sqlSvcDomain, $sqlSvcUsernameWithoutPrefix = SplitPrefixFromUsername -NameToSplit $SqlSvcUsername
+	}
+	
+	$existingUser = Get-LocalUser -Name $sqlSvcUsernameWithoutPrefix
+	
+	if (-not $existingUser)
+	{
+		Write-Host "[*] $SqlSvcUsername does not exist. Creating user..." -ForegroundColor Cyan
+
+		$SecurePassword = $SqlSvcPassword | ConvertTo-SecureString -AsPlainText -Force
+		try {
+			New-LocalUser `
+				-Name $sqlSvcUsernameWithoutPrefix `
+				-SamAccountName $sqlSvcUsernameWithoutPrefix `
+				-AccountPassword $SecurePassword `
+				-Disabled $false `
+				-AccountNeverExpires $true `
+				-PasswordNeverExpires $true `
+				-Description "SQL Server Service Account" `
+				-ErrorAction Stop
+			
+			Write-Host "[*] User created." -ForegroundColor Cyan
+		} catch {
+			Write-Error "[!] Failed to create user $SqlSvcUsername."
+			Write-Error $_.Exception.Message
+			exit 1
+		}
 	}
 }
 
 # Check SQL sysadmin username validity
 $sqlSysAdminAccountsFormattedArray = foreach ($sqlAdmin in $SqlSysAdminAccounts)
 {
-	$sqlAdminUsernameWithoutDomain = $sqlAdmin
-	if ((CheckDomainIncluded($sqlAdmin)))
+	if ((CheckForUsernamePrefix -NameToCheck $sqlAdmin))
 	{
-		$sqlAdminDomain, $sqlAdminUsernameWithoutDomain = SplitDomainFromName($sqlAdmin)
-	}
-	
-	$sqlAdminUpn = "$sqlAdminUsernameWithoutDomain@$FQDN"
-	
-	$existingUser = Get-ADUser -Filter { UserPrincipalName -eq $sqlAdminUpn }
-	
-	if ($existingUser)
-	{
-		$sqlAdminsUsernameWithoutDomain
+		$sqlAdminDomain, $sqlAdminUsernameWithoutDomain = SplitPrefixFromUsername -NameToSplit $sqlAdmin
+		
+		$sqlAdminUpn = "$sqlAdminUsernameWithoutDomain@$FQDN"
+		
+
+		$existingUser = Get-ADUser -Filter { UserPrincipalName -eq $sqlAdminUpn }
+
+		if ($existingUser)
+		{
+			$sqlAdminUpn
+		} else
+		{
+			Write-Error "[!] User $sqlAdmin does not exist."
+			exit 1
+		}
 	} else
 	{
-		Write-Error "[!] User $sqlAdmin does not exist."
-		exit 1
+		$existingUser = Get-LocalUser -Name $sqlAdmin
+	
+		if ($existingUser)
+		{
+			$sqlAdmin
+		} else
+		{
+			Write-Error "[!] User $sqlAdmin does not exist."
+			exit 1
+		}
 	}
+	
 }
 
 # Create a space separated string of usernames to be included in the .ini config file
@@ -161,10 +229,10 @@ $iniContent = @"
 ACTION="Install"
 FEATURES=SQL
 INSTANCENAME="$InstanceName"
-SQLSVCACCOUNT="$SqlSvcUsername"
+SQLSVCACCOUNT="$sqlSvcAccount"
 SQLSVCPASSWORD="$SqlSvcPassword"
 SQLSVCSTARTUPTYPE="$SqlSvcStartupType"
-SQLSYSADMINACCOUNTS="$sqlAdmins"
+SQLSYSADMINACCOUNTS="$sqlSysAdminAccountsFormattedString"
 ADDCURRENTUSERASSQLADMIN=FALSE
 TCPENABLED=1
 "@
@@ -173,6 +241,6 @@ $iniContent | Out-File -FilePath $sqlServerConfigFilePath
 Write-Host "[*] Installing SQL Server Express..." -ForegroundColor Cyan
 Start-Process -FilePath $sqlServerSetupPath -ArgumentList "/CONFIGURATIONFILE=$sqlServerConfigFilePath /INSTALLPATH=`"$sqlInstallPath`" /QUIET /IACCEPTSQLSERVERLICENSETERMS" -Wait
 
-CleanUp()
+CleanUp
 
 exit 0
