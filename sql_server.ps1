@@ -25,6 +25,13 @@ param(
 	[string] $SqlSvcStartupType = "Automatic"
 )
 
+
+#########################################################
+#########################################################
+################  FUNCTION DECLARATIONS  ################
+#########################################################
+#########################################################
+
 function CleanUp
 {
 	param(
@@ -34,13 +41,7 @@ function CleanUp
 		[switch] $RemoveExtraFiles = $false
 	)
 	
-	if ((-not ($RemoveExtraFiles.IsPresent)) -and ($null -eq $RemoveUser))
-	{
-		Write-Error "[!] -RemoveUser and -RemoveExtraFiles cannot both be absent."
-		exit 1
-	}
-	
-	if (-not ($null -eq $RemoveUser) -and (-not ($RemoveExtraFiles.IsPresent)))
+	function RemoveUser
 	{
 		$usernameWithoutPrefix = $RemoveUser
 		
@@ -50,7 +51,13 @@ function CleanUp
 			CheckActiveDirectoryAvailabilityAndImport
 			
 			$domain, $usernameWithoutPrefix = SplitPrefixFromUsername -Username $RemoveUser
-			Remove-ADUser -Identity $usernameWithoutPrefix
+			
+			Write-Host "[*] Removing user $RemoveUser..." -ForegroundColor Cyan
+			
+			Remove-ADUser -Identity $usernameWithoutPrefix -Confirm:$false
+			
+			Write-Host "[*] Removed user $RemoveUser." -ForegroundColor Cyan
+			
 			return
 		}
 		
@@ -60,34 +67,69 @@ function CleanUp
 			$dotPrefix, $usernameWithoutPrefix = SplitPrefixFromUsername -Username $RemoveUser
 		}
 		
-		Remove-LocalUser -Name $usernameWithoutPrefix
+		Write-Host "[*] Removing user $RemoveUser..." -ForegroundColor Cyan
+		
+		Remove-LocalUser -Name $usernameWithoutPrefix -Confirm:$false
+		
+		Write-Host "[*] Removed user $RemoveUser." -ForegroundColor Cyan
+		
 		return
 	}
 	
-	if ($RemoveExtraFiles.IsPresent -and ($null -eq $RemoveUser))
+	function RemoveExtraFiles
 	{
-		Write-Host "[*] Removing $sqlServerSetupPath..." -ForegroundColor Cyan
-		Remove-Item -Path $sqlServerSetupPath -Force
-
-		$sqlServerSetupExists = Test-Path -Path $sqlServerSetupPath
-		if ($sqlServerSetupExists)
+		if ((Test-Path -Path $sqlServerSetupPath))
 		{
-			Write-Error "[!] Failed to remove $sqlServerSetupPath."
-			exit 1
-		}
-		Write-Host "[*] Removed $sqlServerSetupPath." -ForegroundColor Cyan
-		
-		Write-Host "[*] Removing $sqlServerConfigFilePath..." -ForegroundColor Cyan
-		Remove-Item -Path $sqlServerConfigFilePath -Force
-
-		$sqlServerConfigFileExists = Test-Path -Path $sqlServerConfigFilePath
-		if ($sqlServerConfigFileExists)
-		{
-			Write-Error "[!] Failed to remove $sqlServerConfigFilePath."
-			exit 1
+			Write-Host "[*] Removing '$sqlServerSetupPath'..." -ForegroundColor Cyan
+			Remove-Item -Path $sqlServerSetupPath -Force
+			Write-Host "[*] Removed '$sqlServerSetupPath'." -ForegroundColor Cyan
 		}
 		
-		Write-Host "[*] Removed $sqlServerConfigFilePath." -ForegroundColor Cyan
+		if ((Test-Path -Path $sqlServerConfigFilePath))
+		{
+			Write-Host "[*] Removing '$sqlServerConfigFilePath'..." -ForegroundColor Cyan
+			Remove-Item -Path $sqlServerConfigFilePath -Force
+			Write-Host "[*] Removed '$sqlServerConfigFilePath'." -ForegroundColor Cyan
+		}
+		
+		if ((Test-Path -Path $sqlServerSetupStdoutPath))
+		{
+			Write-Host "[*] Removing '$sqlServerSetupStdoutPath'..." -ForegroundColor Cyan
+			Remove-Item -Path $sqlServerSetupStdoutPath -Force
+			Write-Host "[*] Removed '$sqlServerSetupStdoutPath'." -ForegroundColor Cyan
+		}
+		
+		if ((Test-Path -Path $sqlServerSetupStderrPath))
+		{
+			Write-Host "[*] Removing '$sqlServerSetupStderrPath'..." -ForegroundColor Cyan
+			Remove-Item -Path $sqlServerSetupStderrPath -Force
+			Write-Host "[*] Removed '$sqlServerSetupStderrPath'." -ForegroundColor Cyan
+		}
+	}
+	
+	if ((-not ($RemoveExtraFiles.IsPresent)) -and ($RemoveUser -eq ""))
+	{
+		Write-Error "[!] -RemoveUser and -RemoveExtraFiles cannot both be absent."
+		exit 1
+	}
+	
+	if (($RemoveUser -ne "") -and (-not ($RemoveExtraFiles.IsPresent)))
+	{
+		RemoveUser
+		return
+	}
+	
+	if ($RemoveExtraFiles.IsPresent -and ($RemoveUser -eq ""))
+	{
+		RemoveExtraFiles
+		return
+	}
+	
+	if ($RemoveExtraFiles.IsPresent -and ($RemoveUser -eq ""))
+	{
+		RemoveUser
+		RemoveExtraFiles
+		return
 	}
 }
 
@@ -141,11 +183,11 @@ function CheckDomainValidityAndGetDomainInfo
 	param(
 		[Parameter(Mandatory=$true)]
 		[string] $Username,
-		[Parameter(Mandtory=$true)]
+		[Parameter(Mandatory=$true)]
 		[string] $FQDN
 	)
 	
-	CheckActiveDirectoryAvailabilityAndLoad
+	CheckActiveDirectoryAvailabilityAndImport
 	
 	$providedDomainNetBiosName, $providedUsername = SplitPrefixFromUsername -Username $Username
 	
@@ -155,13 +197,13 @@ function CheckDomainValidityAndGetDomainInfo
 		
 		if (-not ($currentDomain.DNSRoot -ieq $FQDN))
 		{
-			Write-Error "[!] Current domain FQDN '$currentDomain.DNSRoot' and provided FQDN '$FQDN.ToLower()' do not match."
+			Write-Error "[!] Current domain FQDN '$($currentDomain.DNSRoot)' and provided FQDN '$($FQDN.ToLower())' do not match."
 			exit 1
 		}
 		
 		if (-not ($providedDomainNetBiosName -eq $currentDomain.NetBIOSName))
 		{
-			Write-Error "[!] Current domain NetBIOS name '$currentDomain.NetBIOSName' and provided domain NetBIOSName '$providedDomainNetBiosName' do not match."
+			Write-Error "[!] Current domain NetBIOS name '$($currentDomain.NetBIOSName)' and provided domain NetBIOSName '$($providedDomainNetBiosName)' do not match."
 			exit 1
 		}
 		
@@ -191,9 +233,16 @@ function CheckActiveDirectoryAvailabilityAndImport
 	}
 }
 
+#################################################
+#################################################
+################  SCRIPT STARTS  ################
+#################################################
+#################################################
 
 # Variables
 $tempPath = "$env:TEMP"
+$sqlServerSetupStdoutPath = "$tempPath\sqlserverstdout.txt"
+$sqlServerSetupStderrPath = "#tempPath\sqlserverstderr.txt"
 $sqlServerSetupPath = "$tempPath\sqlserver.exe"
 $sqlInstallPath = "C:\Program Files\Microsoft SQL Server"
 $sqlServerConfigFilePath = "$tempPath\sqlserverconfig.ini"
@@ -204,15 +253,16 @@ $sqlSvcAccount = $SqlSvcUsername
 CheckActiveDirectoryAvailabilityAndImport
 
 $sqlSvcContainsDomainPrefix = CheckForDomainPrefix -Username $SqlSvcUsername
+$isFqdnNullOrEmpty = ($null -eq $FQDN) -or ($FQDN -eq "")
 
-if ($null -eq $FQDN -and $sqlSvcContainsDomainPrefix)
+if ($isFqdnNullOrEmpty -and $sqlSvcContainsDomainPrefix)
 {
 	Write-Error "[!] FQDN cannot be NULL when SqlSvcUsername contains domain prefix '$SqlSvcUsername'."
 	exit 1
 }
 
 # Case: Install for local machine and local users
-if ($null -eq $FQDN -and (-not sqlSvcContainsDomainPrefix))
+if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 {
 	$sqlSvcUsernameWithoutPrefix = $SqlSvcUsername
 	
@@ -225,7 +275,7 @@ if ($null -eq $FQDN -and (-not sqlSvcContainsDomainPrefix))
 	$existingUser = Get-LocalUser -Name $sqlSvcUsernameWithoutPrefix
 	
 	if (-not $existingUser)
-	{
+	{	
 		Write-Host "[*] $SqlSvcUsername does not exist. Creating user..." -ForegroundColor Cyan
 
 		$SecurePassword = $SqlSvcPassword | ConvertTo-SecureString -AsPlainText -Force
@@ -242,7 +292,7 @@ if ($null -eq $FQDN -and (-not sqlSvcContainsDomainPrefix))
 			
 			Write-Host "[*] User created." -ForegroundColor Cyan
 		} catch {
-			Write-Error "[!] Failed to create user $SqlSvcUsername."
+			Write-Error "[!] Failed to create user '$SqlSvcUsername'."
 			Write-Error $_.Exception.Message
 			exit 1
 		}
@@ -256,7 +306,7 @@ if ($null -eq $FQDN -and (-not sqlSvcContainsDomainPrefix))
 		
 		if ($sqlAdminContainsDomainPrefix)
 		{
-			Write-Error "[!] Username $sqlAdmin contains a domain prefix but $SqlSvcUsername does not. Installation can either be local or domain-joined."
+			Write-Error "[!] Username '$sqlAdmin' contains a domain prefix but '$SqlSvcUsername' does not. Installation can either be local or domain-joined."
 			
 			# Remove new local user created
 			CleanUp -RemoveUser $sqlSvcUsernameWithoutPrefix
@@ -279,7 +329,7 @@ if ($null -eq $FQDN -and (-not sqlSvcContainsDomainPrefix))
 			$sqlAdminWithoutPrefix
 		} else
 		{
-			Write-Error "[!] User $sqlAdmin does not exist."
+			Write-Error "[!] User '$sqlAdmin' does not exist."
 			
 			# Remove new local user created
 			CleanUp -RemoveUser $sqlSvcUsernameWithoutPrefix
@@ -309,11 +359,10 @@ if ($null -eq $FQDN -and (-not sqlSvcContainsDomainPrefix))
 	
 	$domainPrefix, $sqlSvcUsernameWithoutDomainPrefix = SplitPrefixFromUsername -Username $sqlSvcUsernameWithDomainPrefix
 	
-	$sqlSvcUpn = "$sqlSvcUsernameWithoutDomainPrefix@$domainInfo.DNSRoot"
-	
-	$existingUser = Get-ADUser -Filter { UserPrincipalName -eq $sqlSvcUpn }
-	
-	if (-not $existingUser)
+	try
+	{
+		Get-ADUser -Identity $sqlSvcUsernameWithoutDomainPrefix
+	} catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException]
 	{
 		Write-Host "[*] $SqlSvcUsername does not exist. Creating user..." -ForegroundColor Cyan
 
@@ -331,11 +380,16 @@ if ($null -eq $FQDN -and (-not sqlSvcContainsDomainPrefix))
 				-ErrorAction Stop
 			
 			Write-Host "[*] User created." -ForegroundColor Cyan
-		} catch {
-			Write-Error "[!] Failed to create user $SqlSvcUsername."
+		} catch
+		{
+			Write-Error "[!] Failed to create user '$SqlSvcUsername'."
 			Write-Error $_.Exception.Message
 			exit 1
 		}
+	} catch
+	{
+		Write-Error $_.Exception.Message
+		exit 1
 	}
 	
 	$sqlSysAdminAccountsFormattedArray = foreach ($sqlAdmin in $SqlSysAdminAccounts)
@@ -351,17 +405,13 @@ if ($null -eq $FQDN -and (-not sqlSvcContainsDomainPrefix))
 		}
 		
 		$domainPrefix, $sqlAdminWithoutDomainPrefix = SplitPrefixFromUsername -Username $sqlAdminWithDomainPrefix
-	
-		$sqlAdminUpn = "$sqlAdminWithoutDomainPrefix@$domainInfo.DNSRoot"
-		
-		$existingUser = Get-ADUser -Filter { UserPrincipalName -eq $sqlAdminUpn }
-
-		if ($existingUser)
+		try
 		{
-			$sqlAdminUpn
-		} else
+			Get-ADUser -Identity $sqlAdminWithoutDomainPrefix | Out-Null
+			$sqlAdminWithoutDomainPrefix
+		} catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException]
 		{
-			Write-Error "[!] User $sqlAdmin does not exist."
+			Write-Error "[!] User '$sqlAdmin' does not exist."
 			
 			# Remove new domain user created
 			CleanUp -RemoveUser $sqlSvcUsernameWithoutDomainPrefix
@@ -376,6 +426,7 @@ if ($null -eq $FQDN -and (-not sqlSvcContainsDomainPrefix))
 	# Set sqlSvcAccount final value
 	$sqlSvcAccount = $sqlSvcUsernameWithDomainPrefix
 }
+
 
 # Download SQL Server Installer
 Write-Host "[*] Downloading SQL Server Installer into $sqlServerSetupPath..." -ForegroundColor Cyan
@@ -399,30 +450,16 @@ $iniContent | Out-File -FilePath $sqlServerConfigFilePath
 
 Write-Host "[*] Installing SQL Server Express..." -ForegroundColor Cyan
 
-try
-{
-	$process = Start-Process -FilePath $sqlServerSetupPath -ArgumentList "/CONFIGURATIONFILE=$sqlServerConfigFilePath /INSTALLPATH=`"$sqlInstallPath`" /QUIET /IACCEPTSQLSERVERLICENSETERMS" -PassThru -Wait
-	
-	if ($process.ExitCode -eq 0)
-	{
-		Write-Host "[*] SQL Server installed." -ForegroundColor Cyan
-	} else
-	{
-		Write-Error "[!] Failed to install SQL Server with exit code $($process.ExitCode)."
-		
-		CleanUp -RemoveUser $sqlSvcAccount
-		
-		exit 1
-	}
-} catch
-{
-	Write-Error "[!] An error occurred while starting the SQL Server setup process."
-	Write-Error $_.Exception.Message
-	
-	CleanUp -RemoveUser $sqlSvcAccount
-	
-	exit 1
-}
+$sqlServerSetupArguments = @(
+	"/CONFIGURATIONFILE=$sqlServerConfigFilePath"
+	"/INSTALLPATH=`"$sqlInstallPath`""
+	"/QUIET"
+	"/IACCEPTSQLSERVERLICENSETERMS"
+)
+
+Start-Process -FilePath $sqlServerSetupPath	-ArgumentList $sqlServerSetupArguments -Wait
+
+Write-Host "[*] SQL Server installed." -ForegroundColor Cyan
 
 CleanUp -RemoveExtraFiles
 
