@@ -241,11 +241,9 @@ function CheckActiveDirectoryAvailabilityAndImport
 
 # Variables
 $tempPath = "$env:TEMP"
-$sqlServerSetupStdoutPath = "$tempPath\sqlserverstdout.txt"
-$sqlServerSetupStderrPath = "#tempPath\sqlserverstderr.txt"
+$sqlServerConfigFilePath = "$tempPath\sqlserverconfig.ini"
 $sqlServerSetupPath = "$tempPath\sqlserver.exe"
 $sqlInstallPath = "C:\Program Files\Microsoft SQL Server"
-$sqlServerConfigFilePath = "$tempPath\sqlserverconfig.ini"
 $sqlSysAdminAccountsFormattedString = ""
 $sqlSvcAccount = $SqlSvcUsername
 
@@ -371,7 +369,7 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 			New-ADUser `
 				-Name $sqlSvcUsernameWithoutDomainPrefix `
 				-SamAccountName $sqlSvcUsernameWithoutDomainPrefix `
-				-UserPrincipalName $sqlSvcUpn `
+				-UserPrincipalName "$($sqlSvcUsernameWithoutDomainPrefix)@$($FQDN.ToLower())" `
 				-AccountPassword $SecurePassword `
 				-Enabled $true `
 				-PasswordNeverExpires $true `
@@ -408,7 +406,7 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 		try
 		{
 			Get-ADUser -Identity $sqlAdminWithoutDomainPrefix | Out-Null
-			$sqlAdminWithoutDomainPrefix
+			$sqlAdminWithDomainPrefix
 		} catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException]
 		{
 			Write-Error "[!] User '$sqlAdmin' does not exist."
@@ -427,7 +425,6 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 	$sqlSvcAccount = $sqlSvcUsernameWithDomainPrefix
 }
 
-
 # Download SQL Server Installer
 Write-Host "[*] Downloading SQL Server Installer into $sqlServerSetupPath..." -ForegroundColor Cyan
 Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?linkid=2216019&culture=en-us" -OutFile $sqlServerSetupPath -UseBasicParsing
@@ -442,25 +439,19 @@ SQLSVCACCOUNT="$sqlSvcAccount"
 SQLSVCPASSWORD="$SqlSvcPassword"
 SQLSVCSTARTUPTYPE="$SqlSvcStartupType"
 SQLSYSADMINACCOUNTS="$sqlSysAdminAccountsFormattedString"
-ADDCURRENTUSERASSQLADMIN=FALSE
-TCPENABLED=1
-NPENABLED=1
+ADDCURRENTUSERASSQLADMIN="False"
+TCPENABLED="1"
+NPENABLED="1"
 "@
+
 $iniContent | Out-File -FilePath $sqlServerConfigFilePath
 
 Write-Host "[*] Installing SQL Server Express..." -ForegroundColor Cyan
 
-$sqlServerSetupArguments = @(
-	"/CONFIGURATIONFILE=$sqlServerConfigFilePath"
-	"/INSTALLPATH=`"$sqlInstallPath`""
-	"/QUIET"
-	"/IACCEPTSQLSERVERLICENSETERMS"
-)
-
-Start-Process -FilePath $sqlServerSetupPath	-ArgumentList $sqlServerSetupArguments -Wait
+Start-Process -Wait -FilePath $sqlServerSetupPath -ArgumentList "/Quiet /IACCEPTSQLSERVERLICENSETERMS /ConfigurationFile=$sqlServerConfigFilePath"
 
 Write-Host "[*] SQL Server installed." -ForegroundColor Cyan
 
-CleanUp -RemoveExtraFiles
+#CleanUp -RemoveExtraFiles
 
 exit 0
