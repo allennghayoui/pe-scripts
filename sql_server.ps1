@@ -18,6 +18,8 @@ param(
 	[string] $SqlSvcPassword,
 	[Parameter(Mandatory=$true)]
 	[string[]] $SqlSysAdminAccounts,
+	[Parameter(Mandatory=$true)]
+	[string] $SaPassword,
 	[Parameter(Mandatory=$false)]
 	[string] $FQDN,
 	[Parameter(Mandatory=$false)]
@@ -324,7 +326,7 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 	
 		if ($existingUser)
 		{
-			$sqlAdminWithoutPrefix
+			"`"$sqlAdminWithoutPrefix`""
 		} else
 		{
 			Write-Error "[!] User '$sqlAdmin' does not exist."
@@ -338,7 +340,7 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 	}
 
 	# Create a space separated string of usernames to be included in the '.ini' config file
-	$sqlSysAdminAccountsFormattedString = $sqlSysAdminAccountsFormattedArray -join '" "'
+	$sqlSysAdminAccountsFormattedString = $sqlSysAdminAccountsFormattedArray -join ' '
 	
 	# Set sqlSvcAccount final value
 	$sqlSvcAccount = $sqlSvcUsernameWithoutPrefix
@@ -406,7 +408,7 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 		try
 		{
 			Get-ADUser -Identity $sqlAdminWithoutDomainPrefix | Out-Null
-			$sqlAdminWithDomainPrefix
+			"`"$sqlAdminWithDomainPrefix`""
 		} catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException]
 		{
 			Write-Error "[!] User '$sqlAdmin' does not exist."
@@ -419,7 +421,7 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 	}
 	
 	# Create a space separated string of usernames to be included in the '.ini' config file
-	$sqlSysAdminAccountsFormattedString = $sqlSysAdminAccountsFormattedArray -join '" "'
+	$sqlSysAdminAccountsFormattedString = $sqlSysAdminAccountsFormattedArray -join ' '
 	
 	# Set sqlSvcAccount final value
 	$sqlSvcAccount = $sqlSvcUsernameWithDomainPrefix
@@ -429,7 +431,8 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 Write-Host "[*] Downloading SQL Server Installer into $sqlServerSetupPath..." -ForegroundColor Cyan
 Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?linkid=2216019&culture=en-us" -OutFile $sqlServerSetupPath -UseBasicParsing
 
-Write-Host "[*] Generating '.ini' configuration file..." -ForegroundColor Cyan
+Write-Host "[*] Generating $sqlServerConfigFilePath configuration file..." -ForegroundColor Cyan
+
 $iniContent = @"
 [OPTIONS]
 ACTION="Install"
@@ -438,10 +441,11 @@ INSTANCENAME="$InstanceName"
 SQLSVCACCOUNT="$sqlSvcAccount"
 SQLSVCPASSWORD="$SqlSvcPassword"
 SQLSVCSTARTUPTYPE="$SqlSvcStartupType"
-SQLSYSADMINACCOUNTS="$sqlSysAdminAccountsFormattedString"
+SQLSYSADMINACCOUNTS=$sqlSysAdminAccountsFormattedString
 ADDCURRENTUSERASSQLADMIN="False"
 TCPENABLED="1"
 NPENABLED="1"
+SAPWD="$SaPassword"
 "@
 
 $iniContent | Out-File -FilePath $sqlServerConfigFilePath
@@ -452,6 +456,6 @@ Start-Process -Wait -FilePath $sqlServerSetupPath -ArgumentList "/Quiet /IACCEPT
 
 Write-Host "[*] SQL Server installed." -ForegroundColor Cyan
 
-#CleanUp -RemoveExtraFiles
+CleanUp -RemoveExtraFiles
 
 exit 0
