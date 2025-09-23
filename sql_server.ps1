@@ -244,7 +244,10 @@ function CheckActiveDirectoryAvailabilityAndImport
 # Variables
 $tempPath = "$env:TEMP"
 $sqlServerConfigFilePath = "$tempPath\sqlserverconfig.ini"
-$sqlServerSetupPath = "$tempPath\sqlserver.exe"
+$sqlServerExtractorPath = "$tempPath\sqlserverextractor.exe"
+$sqlServerExprEnuSetupPath = "$tempPath\SQLEXPR_x64_ENU.exe"
+$sqlServerSetupFilesPath = "$tempPath\SQLServerSetupFiles"
+$sqlServerSetupPath = "$sqlServerSetupFilesPath\SETUP.EXE"
 $sqlInstallPath = "C:\Program Files\Microsoft SQL Server"
 $sqlSysAdminAccountsFormattedString = ""
 $sqlSvcAccount = $SqlSvcUsername
@@ -431,13 +434,34 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 Write-Host "[*] Downloading SQL Server Installer into $sqlServerSetupPath..." -ForegroundColor Cyan
 Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?linkid=2216019&culture=en-us" -OutFile $sqlServerSetupPath -UseBasicParsing
 
+# Download SQLEXPR_x64_ENU.exe file
+Write-Host "[*] Downloading SQLEXPR_x64_ENU.exe..." -ForegroundColor Cyan
+Start-Process -Wait -FilePath $sqlServerExtractorPath -ArgumentList "/QUIET /ACTION=Download /MEDIATYPE=Core /MEDIAPATH=$tempPath"
+Write-Host "[*] Downloaded SQLEXPR_x64_ENU.exe." -ForegroundColor Cyan
+
+# Extract setup files
+Write-Host "[*] Extracting setup files into $sqlServerSetupFilesPath..." -ForegroundColor Cyan
+Start-Process -Wait -FilePath $sqlServerExprEnuSetupPath -ArgumentList "/q /x:$sqlServerSetupFilesPath"
+Write-Host "[*] Extracted setup files into $sqlServerSetupFilesPath." -ForegroundColor Cyan
+
+# Generate configuration '.ini' file
 Write-Host "[*] Generating $sqlServerConfigFilePath configuration file..." -ForegroundColor Cyan
 
 $iniContent = @"
 [OPTIONS]
 ACTION="Install"
-FEATURES=SQL
+QUIET="True"
+; UIMODE="Normal"
+UpdateEnabled="True"
+USEMICROSOFTUPDATE="False"
+SUPPRESSPAIDEDITIONNOTICE="False"
+UpdateSource="MU"
+SECURITYMODE="SQL"
+BROWSERSTARTUPTYPE="Disabled"
+INDICATEPROGRESS="True"
+FEATURES="SQLEngine"
 INSTANCENAME="$InstanceName"
+INSTANCEID="$InstanceName"
 SQLSVCACCOUNT="$sqlSvcAccount"
 SQLSVCPASSWORD="$SqlSvcPassword"
 SQLSVCSTARTUPTYPE="$SqlSvcStartupType"
@@ -450,9 +474,12 @@ SAPWD="$SaPassword"
 
 $iniContent | Out-File -FilePath $sqlServerConfigFilePath
 
+Write-Host "[*] Configuration file generated." -ForegroundColor Cyan
+
+# Install SQL Server Express using configuration file
 Write-Host "[*] Installing SQL Server Express..." -ForegroundColor Cyan
 
-Start-Process -Wait -FilePath $sqlServerSetupPath -ArgumentList "/Quiet /IACCEPTSQLSERVERLICENSETERMS /ConfigurationFile=$sqlServerConfigFilePath"
+Start-Process -Wait -FilePath $sqlServerSetupPath -ArgumentList "/IACCEPTSQLSERVERLICENSETERMS /ConfigurationFile=$sqlServerConfigFilePath"
 
 Write-Host "[*] SQL Server installed." -ForegroundColor Cyan
 
