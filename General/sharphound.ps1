@@ -1,3 +1,5 @@
+# WARNING: Some files downloaded through this script might be blocked by Windows AV.
+
 param(
 	[Parameter(Mandatory=$true)]
 	[string] $BloodhoundIP,
