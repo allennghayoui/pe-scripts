@@ -1,3 +1,45 @@
+<#
+	.SYNOPSIS
+	Creates a new SQL Server instance.
+
+	.DESCRIPTION
+	Creates and sets up a new SQL Server instance on the target machine.
+
+	.PARAMETER InstanceName
+	Specifies the name of the new SQL Server instance.
+
+	.PARAMETER SqlSvcUsername
+	Specifies the username for the SQL Server Service account.
+
+	.PARAMETER SqlSvcPassword
+	Specifies the password for the SQL Server Service account.
+
+	.PARAMETER SqlSysAdminAccounts
+	Specifies the accounts to be given the SQL 'sysadmin' role on the new SQL Server instance.
+
+	.PARAMETER SaPassword
+	Specifies the password for the 'sa' user on the new SQL Server instance.
+
+	.PARAMETER FQDN
+	Specifies the Fully Qualified Domain Name of the domain that the machine is joined to (in case of a domain-joined installation).
+
+	.PARAMETER SqlSvcStartupType
+	Specifies the SQL Server service startup type.
+
+	.EXAMPLE
+	PS> .\sql_server.ps1 -InstanceName "NEWSQL" -SqlSvcUsername "DOMAIN\sql_svc" -SqlSvcPassword "P@ssw0rd" -SqlSysAdminAccounts "DOMAIN\sql_svc","DOMAIN\johndoe" -SaPassword "P@ssw0rd" -FQDN "domain.local" -SqlSvcStartupType "Automatic"
+
+	.EXAMPLE
+	PS> .\sql_server.ps1 -InstanceName "NEWSQL" -SqlSvcUsername "DOMAIN\sql_svc" -SqlSvcPassword "P@ssw0rd" -SqlSysAdminAccounts "DOMAIN\sql_svc","DOMAIN\johndoe" -SaPassword "P@ssw0rd" -FQDN "domain.local"
+
+	.EXAMPLE
+	PS> .\sql_server.ps1 -InstanceName "NEWSQL" -SqlSvcUsername "sql_svc" -SqlSvcPassword "P@ssw0rd" -SqlSysAdminAccounts "sql_svc","johndoe" -SaPassword "P@ssw0rd" -FQDN "domain.local"
+
+	.EXAMPLE
+	PS> .\sql_server.ps1 -InstanceName "NEWSQL" -SqlSvcUsername "local_sql_svc" -SqlSvcPassword "P@ssw0rd" -SqlSysAdminAccounts "local_sql_svc","local_johndoe" -SaPassword "P@ssw0rd"
+
+#>
+
 # 1. SQL Server is paid only Express edition is free
 # https://www.microsoft.com/en/sql-server/sql-server-downloads
 # Difference between editions is in the limit max 10GB DBs 1GB of memory
@@ -242,6 +284,8 @@ function CheckActiveDirectoryAvailabilityAndImport
 #################################################
 
 # Variables
+$totalScriptTasks = 17
+$currentScriptTask = 1
 $tempPath = "$env:TEMP"
 $sqlServerConfigFilePath = "$tempPath\sqlserverconfig.ini"
 $sqlServerExtractorPath = "$tempPath\sqlserverextractor.exe"
@@ -251,8 +295,15 @@ $sqlServerSetupPath = "$sqlServerSetupFilesPath\SETUP.EXE"
 $sqlSysAdminAccountsFormattedString = ""
 $sqlSvcAccount = $SqlSvcUsername
 
+
 # Import ActiveDirectory PowerShell module
+Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking ActiveDirectory module installed..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
+
 CheckActiveDirectoryAvailabilityAndImport
+
+$currentScriptTask = 2
+
+Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking domain prefix..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
 
 $sqlSvcContainsDomainPrefix = CheckForDomainPrefix -Username $SqlSvcUsername
 $isFqdnNullOrEmpty = ($null -eq $FQDN) -or ($FQDN -eq "")
@@ -263,11 +314,17 @@ if ($isFqdnNullOrEmpty -and $sqlSvcContainsDomainPrefix)
 	exit 1
 }
 
+$currentScriptTask = 3
+
 # Case: Install for local machine and local users
 if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 {
 	$sqlSvcUsernameWithoutPrefix = $SqlSvcUsername
 	
+	Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking SQL Service account username validity..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
+
+	$currentScriptTask = 4
+
 	# Check the SQL service username validity
 	if ((CheckForLocalUserPrefix -Username $SqlSvcUsername))
 	{
@@ -276,12 +333,21 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 	
 	$existingUser = Get-LocalUser -Name $sqlSvcUsernameWithoutPrefix
 	
+	Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking if local user account exists..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
+
+	$currentScriptTask = 5
+
 	if (-not $existingUser)
 	{	
+		Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Creating local user..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
+
+		$currentScriptTask = 6
+
 		Write-Host "[*] $SqlSvcUsername does not exist. Creating user..." -ForegroundColor Cyan
 
 		$SecurePassword = $SqlSvcPassword | ConvertTo-SecureString -AsPlainText -Force
-		try {
+		try
+		{
 			New-LocalUser `
 				-Name $sqlSvcUsernameWithoutPrefix `
 				-SamAccountName $sqlSvcUsernameWithoutPrefix `
@@ -293,7 +359,8 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 				-ErrorAction Stop
 			
 			Write-Host "[*] User created." -ForegroundColor Cyan
-		} catch {
+		} catch
+		{
 			Write-Error "[!] Failed to create user '$SqlSvcUsername'."
 			Write-Error $_.Exception.Message
 			exit 1
@@ -302,8 +369,17 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 	
 	# Check SQL sysadmin username validity
 	# Create array with 
+	Write-Progress -Activity "Checking SQL SysAdmin accounts validity..." -CurrentOperation "Checking SQL Sysadmin accounts validity..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
+
+	$currentScriptTask = 7
+
+	$checkSysAdminValidityTaskPercent = 0
+	$sqlSysAdminAccountsCount = $SqlSysAdminAccounts.Length
+
 	$sqlSysAdminAccountsFormattedArray = foreach ($sqlAdmin in $SqlSysAdminAccounts)
 	{
+		Write-Progress -Activity "Checking $sqlAdmin validity..." -Id 1 -ParentId 0 -PercentComplete (($checkSysAdminValidityTaskPercent / $sqlSysAdminAccountsCount) * 100)
+
 		$sqlAdminContainsDomainPrefix = CheckForDomainPrefix -Username $SqlSvcUsername
 		
 		if ($sqlAdminContainsDomainPrefix)
@@ -338,8 +414,11 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 			
 			exit 1
 		}
-		
+
+		$checkSysAdminValidityTaskPercent = $checkSysAdminValidityTaskPercent + 1
 	}
+
+	Write-Progress -Id 1 -ParentId 0 -Completed
 
 	# Create a space separated string of usernames to be included in the '.ini' config file
 	$sqlSysAdminAccountsFormattedString = $sqlSysAdminAccountsFormattedArray -join ' '
@@ -348,6 +427,10 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 	$sqlSvcAccount = $sqlSvcUsernameWithoutPrefix
 } else
 {
+	Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking SQL Service account username validity..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
+
+	$currentScriptTask = 8
+
 	$domainInfo = CheckDomainValidityAndGetDomainInfo -Username $SqlSvcUsername -FQDN $FQDN
 	
 	$sqlSvcUsernameWithDomainPrefix = $SqlSvcUsername
@@ -361,15 +444,24 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 	
 	$domainPrefix, $sqlSvcUsernameWithoutDomainPrefix = SplitPrefixFromUsername -Username $sqlSvcUsernameWithDomainPrefix
 	
+	Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking if domain user account exists..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
+
+	$currentScriptTask = 9
+
 	try
 	{
 		Get-ADUser -Identity $sqlSvcUsernameWithoutDomainPrefix
 	} catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException]
 	{
+		Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Creating SQL Service domain account..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
+
+		$currentScriptTask = 10
+
 		Write-Host "[*] $SqlSvcUsername does not exist. Creating user..." -ForegroundColor Cyan
 
 		$SecurePassword = $SqlSvcPassword | ConvertTo-SecureString -AsPlainText -Force
-		try {
+		try
+		{
 			New-ADUser `
 				-Name $sqlSvcUsernameWithoutDomainPrefix `
 				-SamAccountName $sqlSvcUsernameWithoutDomainPrefix `
@@ -393,9 +485,18 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 		Write-Error $_.Exception.Message
 		exit 1
 	}
+
+	Write-Progress -Activity "Checking SQL SysAdmin accounts validity..." -CurrentOperation "Checking SQL Sysadmin accounts validity..." Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
+
+	$currentScriptTask = 11
 	
+	$checkSysAdminValidityTaskPercent = 0
+	$sqlSysAdminAccountsCount = $SqlSysAdminAccounts.Length
+
 	$sqlSysAdminAccountsFormattedArray = foreach ($sqlAdmin in $SqlSysAdminAccounts)
 	{
+		Write-Progress -Activity "Checking sysadmin $sqlAdmin validity..." -Id 1 -ParentId 0 -PercentComplete (($checkSysAdminValidityTaskPercent / $sqlSysAdminAccountsCount) * 100)
+
 		$domainInfo = CheckDomainValidityAndGetDomainInfo -Username $sqlAdmin -FQDN $FQDN
 		
 		$sqlAdminWithDomainPrefix = $sqlAdmin
@@ -420,8 +521,12 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 			
 			exit 1
 		}
+
+		$checkSysAdminValidityTaskPercent = $checkSysAdminValidityTaskPercent + 1
 	}
 	
+	Write-Progress -Id 1 -ParentId 0 -Completed
+
 	# Create a space separated string of usernames to be included in the '.ini' config file
 	$sqlSysAdminAccountsFormattedString = $sqlSysAdminAccountsFormattedArray -join ' '
 	
@@ -429,19 +534,31 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 	$sqlSvcAccount = $sqlSvcUsernameWithDomainPrefix
 }
 
+Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Downloading SQL Server Installer..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
+$currentScriptTask = 12
+
 # Download SQL Server Installer
 Write-Host "[*] Downloading SQL Server Installer into $sqlServerSetupPath..." -ForegroundColor Cyan
 Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?linkid=2216019&culture=en-us" -OutFile $sqlServerSetupPath -UseBasicParsing
+
+Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Downloading SQLEXPR_x64_ENU.exe..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
+$currentScriptTask = 13
 
 # Download SQLEXPR_x64_ENU.exe file
 Write-Host "[*] Downloading SQLEXPR_x64_ENU.exe..." -ForegroundColor Cyan
 Start-Process -Wait -FilePath $sqlServerExtractorPath -ArgumentList "/QUIET /ACTION=Download /MEDIATYPE=Core /MEDIAPATH=$tempPath"
 Write-Host "[*] Downloaded SQLEXPR_x64_ENU.exe." -ForegroundColor Cyan
 
+Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Extracting setup files..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
+$currentScriptTask = 14
+
 # Extract setup files
 Write-Host "[*] Extracting setup files into $sqlServerSetupFilesPath..." -ForegroundColor Cyan
 Start-Process -Wait -FilePath $sqlServerExprEnuSetupPath -ArgumentList "/q /x:$sqlServerSetupFilesPath"
 Write-Host "[*] Extracted setup files into $sqlServerSetupFilesPath." -ForegroundColor Cyan
+
+Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Generating configuration file..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
+$currentScriptTask = 15
 
 # Generate configuration '.ini' file
 Write-Host "[*] Generating $sqlServerConfigFilePath configuration file..." -ForegroundColor Cyan
@@ -475,12 +592,18 @@ $iniContent | Out-File -FilePath $sqlServerConfigFilePath
 
 Write-Host "[*] Configuration file generated." -ForegroundColor Cyan
 
+Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Installing SQL Server Express..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
+$currentScriptTask = 16
+
 # Install SQL Server Express using configuration file
 Write-Host "[*] Installing SQL Server Express..." -ForegroundColor Cyan
 
 Start-Process -Wait -FilePath $sqlServerSetupPath -ArgumentList "/IACCEPTSQLSERVERLICENSETERMS /ConfigurationFile=$sqlServerConfigFilePath"
 
 Write-Host "[*] SQL Server installed." -ForegroundColor Cyan
+
+Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Cleaning up extra files..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
+$currentScriptTask = 17
 
 CleanUp -RemoveExtraFiles
 
