@@ -248,7 +248,6 @@ $sqlServerExtractorPath = "$tempPath\sqlserverextractor.exe"
 $sqlServerExprEnuSetupPath = "$tempPath\SQLEXPR_x64_ENU.exe"
 $sqlServerSetupFilesPath = "$tempPath\SQLServerSetupFiles"
 $sqlServerSetupPath = "$sqlServerSetupFilesPath\SETUP.EXE"
-$sqlInstallPath = "C:\Program Files\Microsoft SQL Server"
 $sqlSysAdminAccountsFormattedString = ""
 $sqlSvcAccount = $SqlSvcUsername
 
