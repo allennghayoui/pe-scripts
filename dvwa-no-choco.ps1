@@ -2,7 +2,6 @@ $tempDir = "$env:TEMP"
 
 # Install PHP
 # Create PHP install directory
-#$phpPath = "C:\tools\"
 $phpInstallUrl = "https://windows.php.net/downloads/releases/php-8.4.12-nts-Win32-vs17-x64.zip"
 $phpZip = "$tempDir\php.zip"
 $vcRedistInstallUrl = "https://aka.ms/vs/17/release/VC_redist.x64.exe"
@@ -16,8 +15,6 @@ if (-not (Test-Path $phpPath))
 	Start-Process -FilePath $vcRedistExe -ArgumentList "/install", "/quiet", "/norestart" -Wait -PassThru
 
 	Write-Host "[*] Installing PHP $phpPath..." -ForegroundColor Cyan
-
-	#choco install php --version=8.4.11 --package-parameters="/InstallDir:$phpPath" -y --ignore-checksums
 	
 	# Download PHP zip
 	Write-Host "[*] Downloading PHP zip file to $phpZip..." -ForegroundColor Cyan
@@ -51,7 +48,6 @@ if (-not (Test-Path $phpCgiPath))
 }
 
 # Install MySQL
-#$mysqlPath = "C:\tools\mysql"
 $mysqlInstallUrl = "https://dev.mysql.com/get/Downloads/MySQLInstaller/mysql-installer-community-8.0.43.0.msi"
 $mysqlInstaller = "$tempDir\mysql-installer-community-8.0.43.0.msi"
 $mysqlPath = "C:\Program Files\MySQL\MySQL Server 8.0"
@@ -232,3 +228,5 @@ Write-Host "[*] Finished setting up DVWA." -ForegroundColor Cyan
 
 Write-Host "[+] DVWA is ready! Browse to http://localhost/" -ForegroundColor Green
 Write-Host "[+] DVWA credentials: admin / password" -ForegroundColor Green
+
+exit 0
