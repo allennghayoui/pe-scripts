@@ -1,14 +1,43 @@
 # WARNING: Some files downloaded through this script might be blocked by Windows AV.
 
+<#
+	.SYNOPSIS
+	Installs and runs the Sharphound data collector.
+
+	.DESCRIPTION
+	Installs the Sharphound data collector from a running Bloodhound instance and runs a scan querying all the domain info.
+
+	.PARAMETER BloodhoundIP
+	Specifies the IP address of the machine running Bloodhound where the API request for downloading Sharphound will be sent.
+
+	.PARAMETER BloodhoundPort
+	Specifies the port number on the machine running Bloodhound where the API request for downloading Sharphound will be sent.
+
+	.PARAMETER TokenKey
+	Specifies the Bloodhound API token key used for authenticating on the Bloodhound API.
+
+	.PARAMETER TokenID
+	Specifies the Bloodhound API token ID for the TokenKey used.
+
+	.PARAMETER TLS
+	Specifies whether the request to the Bloodhound API should be made over 'https://'.
+
+	.EXAMPLE
+	PS> .\sharphound.ps1 -BloodhoundIP 10.10.10.5 -BloodhoundPort 8080 -TokenKey LXeVkQGxqCDOG4CXXsiQBPj3In6ACWc5/yyd66IgeBDUqNcZ/rqCaA== -TokenID 1426fdbd-10dc-44ab-a3a4-e28e045412fa
+
+	.EXAMPLE
+	PS> .\sharphound.ps1 -BloodhoundIP 10.10.10.5 -BloodhoundPort 8080 -TokenKey LXeVkQGxqCDOG4CXXsiQBPj3In6ACWc5/yyd66IgeBDUqNcZ/rqCaA== -TokenID 1426fdbd-10dc-44ab-a3a4-e28e045412fa -TLS
+#>
+
 param(
 	[Parameter(Mandatory=$true)]
 	[string] $BloodhoundIP,
 	[Parameter(Mandatory=$false)]
 	[string] $BloodhoundPort,
 	[Parameter(Mandatory=$true)]
-	[string] $TokenID,
-	[Parameter(Mandatory=$true)]
 	[string] $TokenKey,
+	[Parameter(Mandatory=$true)]
+	[string] $TokenID,
 	[Parameter(Mandatory=$false)]
 	[switch] $TLS
 )
@@ -76,7 +105,7 @@ try
 {
 	Write-Error "[!] Download Failed"
 	Write-Error $_.Exception.Message
-  exit 1
+	exit 1
 }
 
 try
@@ -88,7 +117,7 @@ try
 {
 	Write-Error "[!] Error extrating $sharphoundZipPath"
 	Write-Error $_.Exception.Message
-  exit 1
+	exit 1
 }
 
 try
@@ -101,7 +130,7 @@ try
 {
 	Write-Error "[!] Error running Sharphound."
 	Write-Error $_.Exception.Message
-  exit 1
+	exit 1
 }
 
 exit 0
