@@ -1,25 +1,24 @@
+#Paths
 $tempDir = "$env:TEMP"
-
-# Install PHP
-# Create PHP install directory
-$phpInstallUrl = "https://windows.php.net/downloads/releases/php-8.4.12-nts-Win32-vs17-x64.zip"
 $phpZip = "$tempDir\php.zip"
-$vcRedistInstallUrl = "https://aka.ms/vs/17/release/VC_redist.x64.exe"
 $vcRedistExe = "$tempDir\VC_redist.x64.exe"
 $phpPath = "C:\PHP"
+$phpCgiPath = "$phpPath\php-cgi.exe"
 
+
+# PHP install
 if (-not (Test-Path $phpPath))
 {
 	Write-Host "[*] Installing VC_redist.x64.exe..." -ForegroundColor Cyan
-	Invoke-WebRequest -Uri $vcRedistInstallUrl -OutFile $vcRedistExe
-	Start-Process -FilePath $vcRedistExe -ArgumentList "/install", "/quiet", "/norestart" -Wait -PassThru
+	Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/VC_redist.x64.exe" -OutFile $vcRedistExe -UseBasicParsing
+	Start-Process -FilePath $vcRedistExe -ArgumentList "/install", "/quiet", "/norestart" -Wait
 
 	Write-Host "[*] Installing PHP $phpPath..." -ForegroundColor Cyan
 	
 	# Download PHP zip
 	Write-Host "[*] Downloading PHP zip file to $phpZip..." -ForegroundColor Cyan
  	New-Item -ItemType Directory -Path $phpPath | Out-Null
-	Invoke-WebRequest -Uri $phpInstallUrl -OutFile $phpZip
+	Invoke-WebRequest -Uri "https://windows.php.net/downloads/releases/archives/php-8.4.12-nts-Win32-vs17-x64.zip" -OutFile $phpZip -UseBasicParsing
 
 	# Extract files into C:\PHP
 	Write-Host "[*] Extracting PHP zip file to $phpPath..." -ForegroundColor Cyan
@@ -31,7 +30,7 @@ if (-not (Test-Path $phpPath))
 		exit 1
 	}
 	
-	Write-Host "[*] PHP installed and added to PATH environment variable." -ForegroundColor Cyan
+	Write-Host "[*] PHP installed." -ForegroundColor Cyan
 } else
 {
 	Write-Host "[*] $phpPath already exists. Skipping installation..." -ForegroundColor Cyan
@@ -40,36 +39,28 @@ if (-not (Test-Path $phpPath))
 
 # Setup IIS to support PHP with FastCGI
 # Check if php-cgi.exe exists
-$phpCgiPath = "$phpPath\php-cgi.exe"
 if (-not (Test-Path $phpCgiPath))
 {
 	Write-Error "[-] $phpCgiPath not found. Check your PHP installation."
 	exit 1
 }
 
-# Install MySQL
-$mysqlInstallUrl = "https://dev.mysql.com/get/Downloads/MySQLInstaller/mysql-installer-community-8.0.43.0.msi"
-$mysqlInstaller = "$tempDir\mysql-installer-community-8.0.43.0.msi"
+# MySQL
+$mysqlInstallerPath = "$tempDir\mysql-installer-community-8.0.43.0.msi"
 $mysqlPath = "C:\Program Files\MySQL\MySQL Server 8.0"
 $mysqlService = "MySQL"
 
 if (-not (Test-Path $mysqlPath))
 {
+	Write-Host "[*] Downloading MySQL..." -ForegroundColor Cyan
+
+	Invoke-WebRequest -Uri "https://cdn.mysql.com//Downloads/MySQLInstaller/mysql-installer-community-8.0.43.0.msi" -OutFile $mysqlInstallerPath -UseBasicParsing
+
+	Write-Host "[*] MySQL downloaded." -ForegroundColor Cyan
+
 	Write-Host "[*] Installing MySQL 8.0 into $mysqlPath..." -ForegroundColor Cyan
-
-	#choco install mysql --version=9.1.0 -y --ignore-checksums
-	Invoke-WebRequest -Uri $mysqlInstallUrl -OutFile $mysqlInstaller
-
-	Start-Process msiexec.exe -Wait -ArgumentList @(
-		"/i `"$mysqlInstaller`"",
-		"/qn",
-		"/norestart",
-		"INSTALLDIR=""C:\Program Files\MySQL\MySQL Server 8.0""",
-		"DATADIR=""C:\ProgramData\MySQL\MySQL Server 8.0\Data""",
-		"AddToPath=1",
-		"InstallAsService=1",
-		"ServiceName=MySQL"
-	)
+	Start-Process msiexec.exe -Wait `
+		-ArgumentList "/qn /i `"$mysqlInstallerPath`" /norestart INSTALLDIR=`"C:\Program Files\MySQL\MySQL Server 8.0`" DATADIR=`"C:\ProgramData\MySQL\MySQL Server 8.0\Data`" AddToPath=1 InstallAsService=1 ServiceName=MySQL"
 	
 	if (-not (Test-Path $mysqlPath))
 	{
@@ -92,24 +83,26 @@ if (-not $mysqlServiceStatus -eq "Running")
 	Start-Service $mysqlService
 }
 
+# DVWA
+$dvwaZipPath = "$tempDir\dvwa.zip"
+$dvwaSrcPath = "$tempDir\DVWA-master"
+$dvwaSitePath = "C:\inetpub\wwwroot\dvwa"
+$dvwaPhpConfig = "$dvwaSitePath\config\config.inc.php"
+
 # Download and configure DVWA with IIS
 Write-Host "Setting up DVWA..." -ForegroundColor Cyan
 
-$dvwaZip = "$tempDir\dvwa.zip"
-
-Invoke-WebRequest -Uri "https://github.com/digininja/DVWA/archive/master.zip" -OutFile $dvwaZip
+Invoke-WebRequest -Uri "https://github.com/digininja/DVWA/archive/master.zip" -OutFile $dvwaZipPath -UseBasicParsing
 
 # Extract files from dvwa.zip
-Expand-Archive -Path $dvwaZip -DestinationPath $tempDir -Force
-$dvwaSrc = "$tempDir\DVWA-master"
+Expand-Archive -Path $dvwaZipPath -DestinationPath $tempDir -Force
 
-$dvwaSitePath = "C:\inetpub\wwwroot\dvwa"
 if ((Test-Path $dvwaSitePath))
 {
 	Remove-Item -Path $dvwaSitePath -Recurse -Force
 }
 
-Copy-Item $dvwaSrc $dvwaSitePath -Recurse -Force
+Copy-Item $dvwaSrcPath $dvwaSitePath -Recurse -Force
 
 $webAdministrationModuleAvailable = Get-Module -ListAvailable -Name WebAdministration
 if (-not $webAdministrationModuleAvailable)
@@ -150,7 +143,6 @@ New-WebHandler -Name "PHP" -Path "*.php" -Verb "*" -Modules "FastCgiModule" -Res
 Add-WebConfigurationProperty -PSPath "MACHINE/WEBROOT/APPHOST" -Filter "system.webServer/defaultDocument/files" -Name "." -Value @{ value="index.php" } -Force
 
 # Update DVWA config
-$dvwaPhpConfig = "$dvwaSitePath\config\config.inc.php"
 Copy-Item "$dvwaPhpConfig.dist" $dvwaPhpConfig -Force
 
 if (-not (Test-Path $dvwaPhpConfig))
@@ -188,7 +180,7 @@ Write-Host "[*] Creating MySQL database 'dvwa'..." -ForegroundColor Cyan
 
 $mysqlUser = "root"
 $mysqlPassword = ""
-$mysqlexe = "$mysqlPath\bin\mysql.exe"
+$mysqlExe = "$mysqlPath\bin\mysql.exe"
 
 $sql = @"
 CREATE DATABASE IF NOT EXISTS dvwa;
@@ -227,6 +219,6 @@ $response = Invoke-WebRequest -Uri $setupUrl -Method POST -Body $formData -WebSe
 Write-Host "[*] Finished setting up DVWA." -ForegroundColor Cyan
 
 Write-Host "[+] DVWA is ready! Browse to http://localhost/" -ForegroundColor Green
-Write-Host "[+] DVWA credentials: admin / password" -ForegroundColor Green
+Write-Host "[+] DVWA credentials: 'admin' / 'password'" -ForegroundColor Green
 
 exit 0
