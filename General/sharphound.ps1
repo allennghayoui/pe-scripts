@@ -1,7 +1,3 @@
-
-
-# WARNING: Some files downloaded through this script might be blocked by Windows AV.
-
 <#
 	.SYNOPSIS
 	Installs and runs the Sharphound data collector.
@@ -44,14 +40,122 @@ param(
 	[switch] $TLS
 )
 
+
+function ManageWindowsProtection
+{
+	param(
+		[Parameter(Mandatory=$false)]
+		[switch] $Disable,
+		[Parameter(Mandatory=$false)]
+		[switch] $Reset
+	)
+	
+	if ($Disable.IsPresent)
+	{
+		Write-Warning "[*] Disabling Realtime Monitoring..."
+		# Disable Realtime Monitoring for threats
+		Set-MpPreference -DisableRealtimeMonitoring $true
+		Write-Warning "[*] Realtime Monitoring disabled."
+
+		Write-Warning "[*] Disabling MAPSReporting Active Protection..."
+		# Specifies the type of membership in the Microsoft Active Protection Service
+		# Value = 0 (Disabled)
+		Set-MpPreference -MAPSReporting 0
+		Write-Warning "[*] MAPSReporting Active Protection disabled."
+
+		Write-Warning "[*] Revoking consent for Sample Submission..."
+		# Specifies user consent for sending samples.
+		# Value = 2 (Never send)
+		Set-MpPreference -SubmitSamplesConsent 2
+		Write-Warning "[*] Revoked consent for Sample Submission."
+
+		Write-Warning "[*] Windows Virus and Threat Protection has been disabled temporarily."
+		
+		return $null
+	}
+	
+	if ($Reset.IsPresent)
+	{
+		# Reset Windows Virtus and Threat Protection
+		Write-Warning "[*] Re-enabling Windows Protection..."
+
+		# Reset Realtime Monitoring for threats
+		Write-Warning "[*] Resetting Realtime Monitoring..."
+		Set-MpPreference -DisableRealtimeMonitoring $realtimeMonitoringOriginal
+		Write-Warning "[*] Realtime Monitoring reset."
+
+		# Specifies the type of membership in the Microsoft Active Protection Service
+		Write-Warning "[*] Resetting MAPSReporting Active Protection..."
+		Set-MpPreference -MAPSReporting $mapsReportingOriginal
+		Write-Warning "[*] MAPSReporting Active Protection reset."
+
+		# Specifies user consent for sending samples.
+		Write-Warning "[*] Resetting consent for Sample Submission..."
+		Set-MpPreference -SubmitSamplesConsent $submitSamplesConsentOriginal
+		Write-Warning "[*] Reset consent for Sample Submission."
+
+		Write-Warning "[*] Windows Virus and Threat Protection has been reset."
+		
+		return $null
+	}
+
+	Write-Error "[!] Ambiguous option. You can only select one of -Disable OR -Reset"
+	return $null
+}
+
+# Function declarations
+function RemoveSharphoundZip
+{
+	if ((Test-Path -Path $sharphoundZipPath))
+	{
+		try
+		{
+			Write-Host "[*] Deleting $sharphoundZipPath..." -ForegroundColor Cyan
+			Remove-Item -Path $sharphoundZipPath -Force
+			Write-Host "[*] Deleted $sharphoundZipPath." -ForegroundColor Cyan
+		} catch
+		{
+			Write-Error $_.Exception.Message
+			exit 1
+		}
+	}
+}
+
+function RemoveSharphoundFolder
+{
+	if ((Test-Path -Path $sharphoundPath))
+	{
+		try
+		{
+			Write-Host "[*] Deleting $sharphoundPath..." -ForegroundColor Cyan
+			Remove-Item -Path $sharphoundPath -Force -Recurse
+			Write-Host "[*] Deleted $sharphoundPath." -ForegroundColor Cyan
+		} catch
+		{
+			Write-Error $_.Exception.Message
+			exit 1
+		}
+	}
+}
+
+function CleanUp
+{
+	RemoveSharphoundZip
+	RemoveSharphoundFolder
+}
+
+
+# Variables
 $totalScriptTasks = 6
 $currentScriptTask = 1
 $tempPath = "$env:TEMP"
 $sharphoundZipPath = "$tempPath\sharphound.zip"
 $sharphoundPath = "$tempPath\sharphound"
+$sharphoundResultsPath = "$tempPath\Sharphound"
 $sharphoundExe = "$sharphoundPath\Sharphound.exe"
 
 
+# Script Start
 Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Checking TLS requirement..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
 $currentScriptTask = $currentScriptTask + 1
 
@@ -130,6 +234,17 @@ $HEADERS = @{
 
 $FINAL_URL = "$BASE_URL$SHARPHOUND_DOWNLOAD_URI"
 
+# Disable Windows Virtus and Threat Protection
+Write-Warning "[*] Installing/Running Sharphound requires Windows Protection to be disabled temporarily..."
+
+# Original values
+$realtimeMonitoringOriginal = (Get-MpPreference).DisableRealtimeMonitoring
+$mapsReportingOriginal = (Get-MpPreference).MAPSReporting
+$submitSamplesConsentOriginal = (Get-MpPreference).SubmitSamplesConsent
+
+ManageWindowsProtection -Disable
+
+# Downloading Sharphound archive from Bloodhound API
 try
 {
 	Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Downloading Sharphound archive from Bloodhound API..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
@@ -144,9 +259,13 @@ try
 {
 	Write-Error "[!] Download Failed"
 	Write-Error $_.Exception.Message
+	
+	ManageWindowsProtection -Reset
+	
 	exit 1
 }
 
+# Extracting downloaded Sharphound archive
 try
 {
 	Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Extracting Sharphound archive..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
@@ -161,28 +280,51 @@ try
 {
 	Write-Error "[!] Error extrating $sharphoundZipPath"
 	Write-Error $_.Exception.Message
+	
+	RemoveSharphoundZip
+	
+	ManageWindowsProtection -Reset
+	
 	exit 1
 }
 
+# Sharphound scan
 try
 {
 	Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Running Sharphound scan..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
 	$currentScriptTask = $currentScriptTask + 1
 
 	Write-Host "[*] Running Sharphound..." -ForegroundColor Cyan
+	
+	Write-Host "[*] Creating Sharphound results directory $sharphoundResultsPath..." -ForegroundColor Cyan
+	New-Item -Path $sharphoundResultsPath -ItemType Directory -Force
+	Write-Host "[*] Created Sharphound results directory $sharphoundResultsPath." -ForegroundColor Cyan
 
-	Start-Process -Wait -FilePath $sharphoundExe -ArgumentList "-c All --OutputDirectory $sharphoundPath" -ErrorAction Stop
-	$createdZipFiles = (Get-ChildItem -Path $sharphoundPath -Filter "*_Bloodhound.zip").Name -join ", "
+	Start-Process -Wait -FilePath $sharphoundExe -ArgumentList "-c All --OutputDirectory $sharphoundResultsPath" -ErrorAction Stop
+	
+	$createdZipFiles = (Get-ChildItem -Path $sharphoundResultsPath -Filter "*_Bloodhound.zip").Name -join ", "
 
-	Write-Host "[*] Sharphound done. The results are contained in the following zip files: $createdZipFiles" -ForegroundColor Cyan
+	Write-Host "[*] Sharphound scan is done. The results are contained in the following zip files: $createdZipFiles" -ForegroundColor Cyan
 } catch
 {
 	Write-Error "[!] Error running Sharphound."
 	Write-Error $_.Exception.Message
+	
+	RemoveSharphoundZip
+	RemoveSharphoundFolder
+	
+	ManageWindowsProtection -Reset
+	
 	exit 1
 }
 
+# Reset Windows Protection
+ManageWindowsProtection -Reset
 
+# Clean up
+CleanUp
+
+# Complete the progress bar
 Write-Progress -Activity "Sharphound Installation and Scan" -Id 0 -Completed
 
 exit 0
