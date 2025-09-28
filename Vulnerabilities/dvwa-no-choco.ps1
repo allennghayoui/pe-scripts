@@ -1,4 +1,13 @@
-
+<#
+	.SYNOPSIS
+	Sets up DVWA as a vulnerable web application with IIS.
+	
+	.DESCRIPTION
+	Sets up DVWA as a vulnerable web appliation with IIS by installing PHP and MySQL Server.
+	
+	.EXAMPLE
+	PS> .\dvwa.ps1
+#>
 
 ######################################## PHP Setup ########################################
 
