@@ -1,3 +1,14 @@
+<#
+	.SYNOPSIS
+	Sets up IIS on a Windows Server machine.
+
+	.DESCRIPTION
+	Sets up IIS on a Windows Server machine.
+
+	.EXAMPLE
+	PS> .\iis.ps1
+#>
+
 # Check if ServerManager module exists
 $isServerManagerModuleInstalled = Get-Module -ListAvailable -Name ServerManager
 
