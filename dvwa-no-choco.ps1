@@ -1,23 +1,3 @@
-######################################## Functions ########################################
-
-function RemovePhp
-{
-    if ((Test-Path $phpZip))
-    {
-        Remove-Item Path $phpZip -Force
-    }
-
-    if ((Test-Path $phpPath))
-    {
-        Remove-Item -Path $phpPath -Force -Recurse
-    }
-    
-    return $null
-}
-
-function CleanUp
-{
-}
 
 
 ######################################## PHP Setup ########################################
@@ -68,10 +48,7 @@ if (-not (Test-Path $phpPath))
 	    if (-not (Test-Path $phpPath))
 	    {
 		    Write-Error "[-] Failed to install PHP."
-            
-            RemovePhp
-		    
-            exit 1
+			exit 1
 	    }
 	
 	    Write-Host "[*] PHP installed." -ForegroundColor Cyan
@@ -79,9 +56,6 @@ if (-not (Test-Path $phpPath))
     {
         Write-Error "[!] Failed to install PHP."
         Write-Error $_.Exception.Message
-        
-        RemovePhp
-        
         exit 1
     }
 } else
@@ -216,7 +190,15 @@ $dvwaSiteName = "DVWA"
 # Download and configure DVWA with IIS
 Write-Host "Setting up DVWA..." -ForegroundColor Cyan
 
-Invoke-WebRequest -Uri "https://github.com/digininja/DVWA/archive/master.zip" -OutFile $dvwaZipPath -UseBasicParsing
+try
+{
+	Invoke-WebRequest -Uri "https://github.com/digininja/DVWA/archive/master.zip" -OutFile $dvwaZipPath -UseBasicParsing
+} catch
+{
+	Write-Error "[!] Failed to download DVWA zip file."
+	Write-Error $_.Exception.Message
+	exit 1
+}
 
 # Extract files from dvwa.zip
 Expand-Archive -Path $dvwaZipPath -DestinationPath $tempDir -Force
@@ -357,7 +339,5 @@ Write-Host "[*] Finished setting up DVWA." -ForegroundColor Cyan
 
 Write-Host "[+] DVWA is ready! Browse to http://localhost/" -ForegroundColor Green
 Write-Host "[+] DVWA credentials: 'admin' / 'password'" -ForegroundColor Green
-
-CleanUp
 
 exit 0
