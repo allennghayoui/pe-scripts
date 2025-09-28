@@ -1,40 +1,93 @@
-#Paths
+######################################## Functions ########################################
+
+function RemovePhp
+{
+    if ((Test-Path $phpZip))
+    {
+        Remove-Item Path $phpZip -Force
+    }
+
+    if ((Test-Path $phpPath))
+    {
+        Remove-Item -Path $phpPath -Force -Recurse
+    }
+    
+    return $null
+}
+
+function CleanUp
+{
+}
+
+
+######################################## PHP Setup ########################################
+
+# Paths
 $tempDir = "$env:TEMP"
 $phpZip = "$tempDir\php.zip"
 $vcRedistExe = "$tempDir\VC_redist.x64.exe"
 $phpPath = "C:\PHP"
 $phpCgiPath = "$phpPath\php-cgi.exe"
 
-
-# PHP install
 if (-not (Test-Path $phpPath))
 {
-	Write-Host "[*] Installing VC_redist.x64.exe..." -ForegroundColor Cyan
-	Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/VC_redist.x64.exe" -OutFile $vcRedistExe -UseBasicParsing
-	Start-Process -FilePath $vcRedistExe -ArgumentList "/install", "/quiet", "/norestart" -Wait
+    
+    try
+    {
+	    # Install PHP pre-requisite VC_redist.x64.exe
+        Write-Host "[*] Installing VC_redist.x64.exe..." -ForegroundColor Cyan
 
-	Write-Host "[*] Installing PHP $phpPath..." -ForegroundColor Cyan
-	
-	# Download PHP zip
-	Write-Host "[*] Downloading PHP zip file to $phpZip..." -ForegroundColor Cyan
- 	New-Item -ItemType Directory -Path $phpPath | Out-Null
-	Invoke-WebRequest -Uri "https://windows.php.net/downloads/releases/archives/php-8.4.12-nts-Win32-vs17-x64.zip" -OutFile $phpZip -UseBasicParsing
+	    Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/VC_redist.x64.exe" -OutFile $vcRedistExe -UseBasicParsing
+	    
+        Start-Process -Wait -NoNewWindow -FilePath $vcRedistExe -ArgumentList "/install", "/quiet", "/norestart"
+        
+        Write-Host "[*] Installed VC_redist.x64.exe..." -ForegroundColor Cyan
+    } catch
+    {
+        Write-Error "[!] Failed to install VC_redist.x64.exe"
+        Write-Error $_.Exception.Message
+        exit 1
+    }
 
-	# Extract files into C:\PHP
-	Write-Host "[*] Extracting PHP zip file to $phpPath..." -ForegroundColor Cyan
-	Expand-Archive -Path $phpZip -DestinationPath $phpPath -Force
+    try
+    {
+	    Write-Host "[*] Installing PHP $phpPath..." -ForegroundColor Cyan
 	
-	if (-not (Test-Path $phpPath))
-	{
-		Write-Error "[-] Failed to install PHP."
-		exit 1
-	}
+	    # Download PHP zip
+	    Write-Host "[*] Downloading PHP zip file to $phpZip..." -ForegroundColor Cyan
+	    
+        New-Item -ItemType Directory -Path $phpPath | Out-Null
+	    
+        Invoke-WebRequest -Uri "https://windows.php.net/downloads/releases/archives/php-8.4.12-nts-Win32-vs17-x64.zip" -OutFile $phpZip -UseBasicParsing
+
+	    # Extract files into C:\PHP
+	    Write-Host "[*] Extracting PHP zip file to $phpPath..." -ForegroundColor Cyan
+
+	    Expand-Archive -Path $phpZip -DestinationPath $phpPath -Force
 	
-	Write-Host "[*] PHP installed." -ForegroundColor Cyan
+	    if (-not (Test-Path $phpPath))
+	    {
+		    Write-Error "[-] Failed to install PHP."
+            
+            RemovePhp
+		    
+            exit 1
+	    }
+	
+	    Write-Host "[*] PHP installed." -ForegroundColor Cyan
+    } catch
+    {
+        Write-Error "[!] Failed to install PHP."
+        Write-Error $_.Exception.Message
+        
+        RemovePhp
+        
+        exit 1
+    }
 } else
 {
-	Write-Host "[*] $phpPath already exists. Skipping installation..." -ForegroundColor Cyan
-	Write-Host "[*] If you think this is a mistake, delete $phpPath and try again." -ForegroundColor Cyan
+	Write-Warning "[!] $phpPath already exists. Skipping installation..."
+	Write-Warning "[!] If you think this is a mistake, delete $phpPath and try again."
 }
 
 # Setup IIS to support PHP with FastCGI
@@ -45,49 +98,120 @@ if (-not (Test-Path $phpCgiPath))
 	exit 1
 }
 
-# MySQL
-$mysqlInstallerPath = "$tempDir\mysql-installer-community-8.0.43.0.msi"
-$mysqlPath = "C:\Program Files\MySQL\MySQL Server 8.0"
-$mysqlService = "MySQL"
+######################################## MySQL Setup ########################################
 
-if (-not (Test-Path $mysqlPath))
+$mysqlMsiPath = "$tempDir\mysql-installer-community-8.0.43.0.msi"
+$mysqlMsiExtractedContent = "C:\Program Files (x86)\MySQL\MySQL Installer for Windows"
+$mysqlInstallerPath = "$mysqlMsiContent\MySQLInstallerConsole.exe"
+$mysqlBinPath = "C:\Program Files\MySQL\MySQL Server 8.0\bin"
+$mysqlDaemonPath = "$mysqlBinPath\mysqld.exe"
+$mysqlExePath = "$mysqlBinPath\mysql.exe"
+$mysqlServiceName = "MySQL"
+
+# Download MySQL MSI
+if (-not (Test-Path $mysqlInstallerPath))
 {
-	Write-Host "[*] Downloading MySQL..." -ForegroundColor Cyan
+	Write-Host "[*] Downloading MySQL MSI..." -ForegroundColor Cyan
 
-	Invoke-WebRequest -Uri "https://cdn.mysql.com//Downloads/MySQLInstaller/mysql-installer-community-8.0.43.0.msi" -OutFile $mysqlInstallerPath -UseBasicParsing
+	Invoke-WebRequest -Uri "https://cdn.mysql.com//Downloads/MySQLInstaller/mysql-installer-community-8.0.43.0.msi" -OutFile $mysqlMsiPath -UseBasicParsing
 
-	Write-Host "[*] MySQL downloaded." -ForegroundColor Cyan
+	Write-Host "[*] MySQL MSI downloaded." -ForegroundColor Cyan
 
 	Write-Host "[*] Installing MySQL 8.0 into $mysqlPath..." -ForegroundColor Cyan
-	Start-Process msiexec.exe -Wait `
-		-ArgumentList "/qn /i `"$mysqlInstallerPath`" /norestart INSTALLDIR=`"C:\Program Files\MySQL\MySQL Server 8.0`" DATADIR=`"C:\ProgramData\MySQL\MySQL Server 8.0\Data`" AddToPath=1 InstallAsService=1 ServiceName=MySQL"
+	Start-Process msiexec.exe -Wait -ArgumentList "/qb /norestart /i `"$mysqlMsiPath`""
 	
-	if (-not (Test-Path $mysqlPath))
+	if (-not (Test-Path $mysqlInstallerPath))
 	{
-		Write-Error "[-] Failed to install MySQL."
+		Write-Error "[!] Failed to extract MySQL MSI content into $mysqlMsiExtractedContent."
 		exit 1
 	}
 	
-	Write-Host "[*] MySQL 8.0 installed." -ForegroundColor Cyan
+	Write-Host "[*] MySQL MSI content extracted into $mysqlMsiExtractedContent." -ForegroundColor Cyan
 } else
 {
-	Write-Host "[*] $mysqlPath already exists. Skipping installation..." -ForegroundColor Cyan
-	Write-Host "[*] If you think this is a mistake, delete $mysqlPath and try again." -ForegroundColor Cyan
+	Write-Warning "[!] $mysqlMsiExtractedContent already exists. Skipping download..."
+	Write-Warning "[!] If you think this is a mistake, delete $mysqlMsiExtractedContent and try again."
 }
 
-$mysqlServiceStatus = (Get-Service -Name $mysqlService).Status
+# Install MySQL Server using MySQLInstallerConsole.exe
+try
+{
+    Write-Host "[*] Installing MySQL Server..." -ForegroundColor Cyan
+    
+    Start-Process -Wait -NoNewWindow -FilePath $mysqlInstallerPath -ArgumentList "community install --setup-type=server"
+    
+    Write-Host "[*] MySQL Server installed at $mysqlBinPath." -ForegroundColor Cyan
+} catch
+{
+    Write-Error "[!] Failed to install MySQL Server."
+    Write-Error $_.Exception.Message
+    exit 1
+}
+
+# Install MySQL Server Windows Service
+try
+{
+
+    Write-Host "[*] Installing MySQL Server Windows Service: '$mysqlServiceName'..." -ForegroundColor Cyan
+
+    Start-Process -Wait -NoNewWindow -FilePath $mysqlDaemonPath -ArgumentList "--install"
+
+    Write-Host "[*] Installed MySQL Server Windows Service: '$mysqlServiceName'." -ForegroundColor Cyan
+} catch
+{
+    Write-Error "[!] Failed to install MySQL Server Windows Service: '$mysqlServiceName'."
+    Write-Error $_.Exception.Message
+    exit 1
+}
+
+# Initialize MySQL Server Windows Service
+try
+{
+
+    Write-Host "[*] Initializing MySQL Server Windows Service: '$mysqlServiceName'..." -ForegroundColor Cyan
+
+    Start-Process -Wait -NoNewWindow -FilePath $mysqlDaemonPath -ArgumentList "--initialize-insecure --console"
+
+    Write-Host "[*] Initialized MySQL Server Windows Service: '$mysqlServiceName'." -ForegroundColor Cyan
+} catch
+{
+    Write-Error "[!] Failed to initialize MySQL Server Windows Service: '$mysqlServiceName'."
+    Write-Error $_.Exception.Message
+    exit 1
+}
+
+# Start MySQL Server Windows Service
+try
+{
+
+    Write-Host "[*] Starting MySQL Server Windows Service: '$mysqlServiceName'..." -ForegroundColor Cyan
+
+    Start-Service $mysqlServiceName
+
+    Write-Host "[*] Started MySQL Server Windows Service: '$mysqlServiceName'." -ForegroundColor Cyan
+} catch
+{
+    Write-Error "[!] Failed to start MySQL Server Windows Service: '$mysqlServiceName'."
+    Write-Error $_.Exception.Message
+    exit 1
+}
+
+$mysqlServiceStatus = (Get-Service -Name $mysqlServiceName).Status
 
 if (-not $mysqlServiceStatus -eq "Running")
 {
-	Write-Host "[*] Starting MySQL service..." -ForegroundColor Cyan
-	Start-Service $mysqlService
+	Write-Host "[*] Starting MySQL service: '$mysqlServiceName'..." -ForegroundColor Cyan
+	Start-Service $mysqlServiceName
 }
 
-# DVWA
+
+######################################## DVWA Setup ########################################
+
 $dvwaZipPath = "$tempDir\dvwa.zip"
 $dvwaSrcPath = "$tempDir\DVWA-master"
 $dvwaSitePath = "C:\inetpub\wwwroot\dvwa"
 $dvwaPhpConfig = "$dvwaSitePath\config\config.inc.php"
+$dvwaSiteName = "DVWA"
 
 # Download and configure DVWA with IIS
 Write-Host "Setting up DVWA..." -ForegroundColor Cyan
@@ -102,8 +226,10 @@ if ((Test-Path $dvwaSitePath))
 	Remove-Item -Path $dvwaSitePath -Recurse -Force
 }
 
-Copy-Item $dvwaSrcPath $dvwaSitePath -Recurse -Force
+# Move contents of $tempDir\DVWA-master into C:\inetpub\wwwroot\dvwa
+Move-Item $dvwaSrcPath $dvwaSitePath -Recurse -Force
 
+# Check for WebAdministration PowerShell module installation
 $webAdministrationModuleAvailable = Get-Module -ListAvailable -Name WebAdministration
 if (-not $webAdministrationModuleAvailable)
 {
@@ -118,26 +244,38 @@ Stop-Website "Default Web Site"
 Remove-Item "IIS:\Sites\Default Web Site" -Recurse
 
 # Create new IIS Site called DVWA
-New-Item "IIS:\Sites\DVWA" -bindings @{protocol="http";bindingInformation="*:80:"} -physicalPath "C:\inetpub\wwwroot\dvwa" -Force
+New-Item "IIS:\Sites\$dvwaSiteName" -bindings @{protocol="http";bindingInformation="*:80:"} -physicalPath "C:\inetpub\wwwroot\dvwa" -Force
 
-# Wait until DVWA website starts
-do
+# Wait for website to start
+Start-Sleep -Seconds 5
+
+# Get website state
+$websiteState = (Get-Website -Name $dvwaSiteName).State
+
+if ($websiteState -ne "Started")
 {
-	$state = (Get-Website -Name "DVWA").State
-	Start-Sleep -Seconds 1
-} while ($state -ne "Started")
+    # Start 'DVWA' site if not started
+    Start-Website $dvwaSiteName
+}
+
+if (-not ($websiteState -eq "Started"))
+{
+    Write-Error "[!] Failed to start website $dvwaSiteName."
+    exit 1
+}
 
 # Start 'DVWA' site if not started
-Start-Website "DVWA"
+Start-Website $dvwaSiteName
 
 # Add Application under "SERVER_NAME" > "FastCGI Settings" > "Add Application..." in IIS Manager
 Add-WebConfigurationProperty -PSPath "MACHINE/WEBROOT/APPHOST" -Filter "system.webServer/fastCgi" -Name "." -Value @{ fullPath="$phpCgiPath"; arguments="" } -Force
 
-Get-Website -Name "Default Web Site" | Select-Object Name, State
-Get-Website -Name "DVWA" | Select-Object Name, State
+################ Get-Website -Name "Default Web Site" | Select-Object Name, State ################
+
+Get-Website -Name $dvwaSiteName | Select-Object Name, State
 
 # Add Module Mapping under "SERVER_NAME" > "Sites" > "Default Web Site" > "Handler Mappings" > "Add Module Mapping..." in IIS Manager
-New-WebHandler -Name "PHP" -Path "*.php" -Verb "*" -Modules "FastCgiModule" -ResourceType "File" -ScriptProcessor $phpCgiPath -PSPath "IIS:\Sites\DVWA" -Force
+New-WebHandler -Name "PHP" -Path "*.php" -Verb "*" -Modules "FastCgiModule" -ResourceType "File" -ScriptProcessor $phpCgiPath -PSPath "IIS:\Sites\$dvwaSiteName" -Force
 
 # Add "index.php" as Default Document under "SERVER_NAME" > "Default Document" > "Add..." in IIS Manager
 Add-WebConfigurationProperty -PSPath "MACHINE/WEBROOT/APPHOST" -Filter "system.webServer/defaultDocument/files" -Name "." -Value @{ value="index.php" } -Force
@@ -180,7 +318,6 @@ Write-Host "[*] Creating MySQL database 'dvwa'..." -ForegroundColor Cyan
 
 $mysqlUser = "root"
 $mysqlPassword = ""
-$mysqlExe = "$mysqlPath\bin\mysql.exe"
 
 $sql = @"
 CREATE DATABASE IF NOT EXISTS dvwa;
@@ -189,7 +326,7 @@ GRANT ALL PRIVILEGES ON dvwa.* TO 'dvwa'@'localhost';
 FLUSH PRIVILEGES;
 "@
 
-$sql | & $mysqlExe -u $mySqlUser --password=$mySqlPassword
+$sql | & $mysqlExePath -u $mySqlUser --password=$mySqlPassword
 
 # Send Request to '/setup.php' to finish DVWA setup.
 $setupUrl = "http://localhost/setup.php"
@@ -220,5 +357,7 @@ Write-Host "[*] Finished setting up DVWA." -ForegroundColor Cyan
 
 Write-Host "[+] DVWA is ready! Browse to http://localhost/" -ForegroundColor Green
 Write-Host "[+] DVWA credentials: 'admin' / 'password'" -ForegroundColor Green
+
+CleanUp
 
 exit 0
