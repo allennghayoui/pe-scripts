@@ -170,7 +170,7 @@ if (-not (Get-Service $mysqlServiceName -ErrorAction SilentlyContinue))
 }
 
 $mysqlServiceStatus = (Get-Service -Name $mysqlServiceName).Status
-if (-not $mysqlServiceStatus)
+if ($mysqlServiceStatus -ne "Running")
 	{
 	# Start MySQL Server Windows Service
 	try
@@ -179,6 +179,8 @@ if (-not $mysqlServiceStatus)
 		Write-Host "[*] Starting MySQL Server Windows Service: '$mysqlServiceName'..." -ForegroundColor Cyan
 
 		Start-Service $mysqlServiceName
+		
+		$mysqlServiceStatus = (Get-Service -Name $mysqlServiceName).Status
 		
 		Write-Host "[*] Service '$mysqlServiceName': $mysqlServiceStatus" -ForegroundColor Cyan
 		
