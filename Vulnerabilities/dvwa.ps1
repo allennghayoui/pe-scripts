@@ -273,8 +273,6 @@ if ($websiteState -ne "Started")
 # Add Application under "SERVER_NAME" > "FastCGI Settings" > "Add Application..." in IIS Manager
 Add-WebConfigurationProperty -PSPath "MACHINE/WEBROOT/APPHOST" -Filter "system.webServer/fastCgi" -Name "." -Value @{ fullPath="$phpCgiPath"; arguments="" } -Force
 
-################ Get-Website -Name "Default Web Site" | Select-Object Name, State ################
-
 Get-Website -Name $dvwaSiteName | Select-Object Name, State
 
 # Add Module Mapping under "SERVER_NAME" > "Sites" > "Default Web Site" > "Handler Mappings" > "Add Module Mapping..." in IIS Manager
@@ -282,6 +280,9 @@ New-WebHandler -Name "PHP" -Path "*.php" -Verb "*" -Modules "FastCgiModule" -Res
 
 # Add "index.php" as Default Document under "SERVER_NAME" > "Default Document" > "Add..." in IIS Manager
 Add-WebConfigurationProperty -PSPath "MACHINE/WEBROOT/APPHOST" -Filter "system.webServer/defaultDocument/files" -Name "." -Value @{ value="index.php" } -Force
+
+# Set Anonymous Authentication to use the Application Pool Identity
+Set-WebConfigurationProperty -Filter /system.WebServer/security/authentication/AnonymousAuthentication -name userName -value ""
 
 # Update DVWA config
 Copy-Item "$dvwaPhpConfig.dist" $dvwaPhpConfig -Force
@@ -297,6 +298,7 @@ $phpIni = "$phpPath\php.ini"
 Add-Content -Path $phpIni -Value @(
 	"extension=mysqli"
 	"extension=pdo_mysql"
+	"extension=gd"
 )
 
 Write-Host "[*] PHP set up completed." -ForegroundColor Cyan
@@ -307,6 +309,7 @@ iisreset
 
 # Change permissions for IIS_IUSRS user (add write permissions)
 $folders = @(
+	"C:\inetpub\wwwroot\dvwa",
 	"C:\inetpub\wwwroot\dvwa\config",
 	"C:\inetpub\wwwroot\dvwa\hackable\uploads"
 )
@@ -314,6 +317,7 @@ $folders = @(
 foreach ($folder in $folders)
 {
 	icacls $folder /grant "IIS_IUSRS:(OI)(CI)F" /T
+	icacls $folder /grant "IUSR:(OI)(CI)(RX)" /T
 }
 
 # Create MySQL database for DVWA
