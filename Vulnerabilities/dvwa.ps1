@@ -85,7 +85,7 @@ if (-not (Test-Path $phpCgiPath))
 
 $mysqlMsiPath = "$tempDir\mysql-installer-community-8.0.43.0.msi"
 $mysqlMsiExtractedContent = "C:\Program Files (x86)\MySQL\MySQL Installer for Windows"
-$mysqlInstallerPath = "$mysqlMsiContent\MySQLInstallerConsole.exe"
+$mysqlInstallerPath = "$mysqlMsiExtractedContent\MySQLInstallerConsole.exe"
 $mysqlBinPath = "C:\Program Files\MySQL\MySQL Server 8.0\bin"
 $mysqlDaemonPath = "$mysqlBinPath\mysqld.exe"
 $mysqlExePath = "$mysqlBinPath\mysql.exe"
@@ -116,77 +116,80 @@ if (-not (Test-Path $mysqlInstallerPath))
 	Write-Warning "[!] If you think this is a mistake, delete $mysqlMsiExtractedContent and try again."
 }
 
-# Install MySQL Server using MySQLInstallerConsole.exe
-try
+if (-not (Test-Path $mysqlBinPath))
 {
-    Write-Host "[*] Installing MySQL Server..." -ForegroundColor Cyan
-    
-    Start-Process -Wait -NoNewWindow -FilePath $mysqlInstallerPath -ArgumentList "community install --setup-type=server"
-    
-    Write-Host "[*] MySQL Server installed at $mysqlBinPath." -ForegroundColor Cyan
-} catch
-{
-    Write-Error "[!] Failed to install MySQL Server."
-    Write-Error $_.Exception.Message
-    exit 1
+	# Install MySQL Server using MySQLInstallerConsole.exe
+	try
+	{
+		Write-Host "[*] Installing MySQL Server..." -ForegroundColor Cyan
+		
+		Start-Process -Wait -NoNewWindow -FilePath $mysqlInstallerPath -ArgumentList "community install --silent --auto-handle-prereqs --setup-type=server"
+		
+		Write-Host "[*] MySQL Server installed at $mysqlBinPath." -ForegroundColor Cyan
+	} catch
+	{
+		Write-Error "[!] Failed to install MySQL Server."
+		Write-Error $_.Exception.Message
+		exit 1
+	}
 }
 
-# Install MySQL Server Windows Service
-try
+if (-not (Get-Service $mysqlServiceName -ErrorAction SilentlyContinue))
 {
+	# Install MySQL Server Windows Service
+	try
+	{
 
-    Write-Host "[*] Installing MySQL Server Windows Service: '$mysqlServiceName'..." -ForegroundColor Cyan
+		Write-Host "[*] Installing MySQL Server Windows Service: '$mysqlServiceName'..." -ForegroundColor Cyan
 
-    Start-Process -Wait -NoNewWindow -FilePath $mysqlDaemonPath -ArgumentList "--install"
+		Start-Process -Wait -NoNewWindow -FilePath $mysqlDaemonPath -ArgumentList "--install"
 
-    Write-Host "[*] Installed MySQL Server Windows Service: '$mysqlServiceName'." -ForegroundColor Cyan
-} catch
-{
-    Write-Error "[!] Failed to install MySQL Server Windows Service: '$mysqlServiceName'."
-    Write-Error $_.Exception.Message
-    exit 1
-}
+		Write-Host "[*] Installed MySQL Server Windows Service: '$mysqlServiceName'." -ForegroundColor Cyan
+	} catch
+	{
+		Write-Error "[!] Failed to install MySQL Server Windows Service: '$mysqlServiceName'."
+		Write-Error $_.Exception.Message
+		exit 1
+	}
+	
+	# Initialize MySQL Server Windows Service
+	try
+	{
 
-# Initialize MySQL Server Windows Service
-try
-{
+		Write-Host "[*] Initializing MySQL Server Windows Service: '$mysqlServiceName'..." -ForegroundColor Cyan
 
-    Write-Host "[*] Initializing MySQL Server Windows Service: '$mysqlServiceName'..." -ForegroundColor Cyan
+		Start-Process -Wait -NoNewWindow -FilePath $mysqlDaemonPath -ArgumentList "--initialize-insecure --console"
 
-    Start-Process -Wait -NoNewWindow -FilePath $mysqlDaemonPath -ArgumentList "--initialize-insecure --console"
-
-    Write-Host "[*] Initialized MySQL Server Windows Service: '$mysqlServiceName'." -ForegroundColor Cyan
-} catch
-{
-    Write-Error "[!] Failed to initialize MySQL Server Windows Service: '$mysqlServiceName'."
-    Write-Error $_.Exception.Message
-    exit 1
-}
-
-# Start MySQL Server Windows Service
-try
-{
-
-    Write-Host "[*] Starting MySQL Server Windows Service: '$mysqlServiceName'..." -ForegroundColor Cyan
-
-    Start-Service $mysqlServiceName
-
-    Write-Host "[*] Started MySQL Server Windows Service: '$mysqlServiceName'." -ForegroundColor Cyan
-} catch
-{
-    Write-Error "[!] Failed to start MySQL Server Windows Service: '$mysqlServiceName'."
-    Write-Error $_.Exception.Message
-    exit 1
+		Write-Host "[*] Initialized MySQL Server Windows Service: '$mysqlServiceName'." -ForegroundColor Cyan
+	} catch
+	{
+		Write-Error "[!] Failed to initialize MySQL Server Windows Service: '$mysqlServiceName'."
+		Write-Error $_.Exception.Message
+		exit 1
+	}
 }
 
 $mysqlServiceStatus = (Get-Service -Name $mysqlServiceName).Status
+if (-not $mysqlServiceStatus)
+	{
+	# Start MySQL Server Windows Service
+	try
+	{
 
-if (-not $mysqlServiceStatus -eq "Running")
-{
-	Write-Host "[*] Starting MySQL service: '$mysqlServiceName'..." -ForegroundColor Cyan
-	Start-Service $mysqlServiceName
+		Write-Host "[*] Starting MySQL Server Windows Service: '$mysqlServiceName'..." -ForegroundColor Cyan
+
+		Start-Service $mysqlServiceName
+		
+		Write-Host "[*] Service '$mysqlServiceName': $mysqlServiceStatus" -ForegroundColor Cyan
+		
+		Write-Host "[*] Started MySQL Server Windows Service: '$mysqlServiceName'." -ForegroundColor Cyan
+	} catch
+	{
+		Write-Error "[!] Failed to start MySQL Server Windows Service: '$mysqlServiceName'."
+		Write-Error $_.Exception.Message
+		exit 1
+	}
 }
-
 
 ######################################## DVWA Setup ########################################
 
@@ -218,14 +221,23 @@ if ((Test-Path $dvwaSitePath))
 }
 
 # Move contents of $tempDir\DVWA-master into C:\inetpub\wwwroot\dvwa
-Move-Item $dvwaSrcPath $dvwaSitePath -Recurse -Force
+Move-Item $dvwaSrcPath $dvwaSitePath -Force
 
 # Check for WebAdministration PowerShell module installation
 $webAdministrationModuleAvailable = Get-Module -ListAvailable -Name WebAdministration
 if (-not $webAdministrationModuleAvailable)
 {
-	Write-Error "[!] WebAdministration module not available. Please install it and try again."
-	exit 1
+	try
+	{
+		Write-Host "[*] WebAdministration module not available. Installing..."
+		Install-Module -Name WebAdministration -Confirm:$false -Force
+		Write-Host "[*] WebAdministration module installed." -ForegroundColor Cyan
+	} catch
+	{
+		Write-Error "[!] Failed to install WebAdministration module."
+		Write-Error $_.Exception.Message
+		exit 1
+	}
 }
 
 Import-Module WebAdministration
