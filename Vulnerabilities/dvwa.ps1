@@ -263,14 +263,12 @@ if ($websiteState -ne "Started")
     Start-Website $dvwaSiteName
 }
 
-if (-not ($websiteState -eq "Started"))
+$websiteState = (Get-Website -Name $dvwaSiteName).State
+if ($websiteState -ne "Started")
 {
     Write-Error "[!] Failed to start website $dvwaSiteName."
     exit 1
 }
-
-# Start 'DVWA' site if not started
-Start-Website $dvwaSiteName
 
 # Add Application under "SERVER_NAME" > "FastCGI Settings" > "Add Application..." in IIS Manager
 Add-WebConfigurationProperty -PSPath "MACHINE/WEBROOT/APPHOST" -Filter "system.webServer/fastCgi" -Name "." -Value @{ fullPath="$phpCgiPath"; arguments="" } -Force
