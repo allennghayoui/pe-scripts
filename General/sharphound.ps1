@@ -5,16 +5,16 @@
 	.DESCRIPTION
 	Installs the Sharphound data collector from a running Bloodhound instance and runs a scan querying all the domain info and uploads the results to an Amazon S3 Bucket.
 
-	.PARAMETER BloodhoundIP
-	Specifies the IP address of the machine running Bloodhound where the API request for downloading Sharphound will be sent.
+	.PARAMETER S3PresignedURL
+	Specifies the presigned URL for the S3 bucket which the Sharphound scan results will be uploaded to.
 
 	.EXAMPLE
-	PS> .\sharphound.ps1 -BloodhoundIP 10.10.10.5
+	PS> .\sharphound.ps1 -S3PresignedURL 
 #>
 
 param(
 	[Parameter(Mandatory=$true)]
-	[string] $BloodhoundIP
+	[string] $S3PresignedURL
 )
 
 
@@ -121,11 +121,17 @@ function CleanUp
 	RemoveSharphoundFolder
 }
 
+function CalculateProgressPercentage
+{
+	$percentage = ($currentTask / $totalTasks) * 100
+	return [math]::Round($percentage, 2)
+}
+
 
 # Variables
 # Progress
-$totalScriptTasks = 8
-$currentScriptTask = 1
+$totalTasks = 6
+$currentTask = 1
 
 # Paths
 $tempPath = "$env:TEMP"
@@ -134,49 +140,10 @@ $sharphoundPath = "$tempPath\sharphound"
 $sharphoundResultsPath = "$tempPath\SharphoundResults"
 $sharphoundExePath = "$sharphoundPath\Sharphound.exe"
 
-# API
-$BLOODHOUND_IP = $BloodhoundIP
-$BLOODHOUND_PORT = 8080
-$BLOODHOUND_BASE_URL = "${BLOODHOUND_IP}:${BLOODHOUND_PORT}"
-$SHARPHOUND_DOWNLOAD_ENDPOINT = "/api/v2/collectors/sharphound/latest"
-
-# Login to Bloodhound and get JWT
-$BLOODHOUND_LOGIN_ENDPOINT = "/api/v2/login"
-$BLOODHOUND_USERNAME = "admin"
-$BLOODHOUND_PASSWORD = "gtSS29rPHOG28^meGyqE"
-$LOGIN_METHOD = "secret"
-
-$body = @{
-	login_method = $LOGIN_METHOD
-	secret = $BLOODHOUND_PASSWORD
-	username = $BLOODHOUND_USERNAME
-}
-
-$jsonBody = $body | ConvertTo-Json
-
-Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Fetching JWT from Bloodhound API..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
-$currentScriptTask = $currentScriptTask + 1
-
-try
-{
-	Write-Host "[*] Fetching JWT..." -ForegroundColor Cyan
-	
-	$loginResponse = Invoke-RestMethod -Uri "$BLOODHOUND_BASE_URL$BLOODHOUND_LOGIN_ENDPOINT" -Method POST -Body $jsonBody -ContentType "application/json" -ErrorAction Stop
-
-	$JWT = $loginResponse.data.session_token
-	
-	Write-Host "[*] Fetched JWT..." -ForegroundColor Cyan
-} catch
-{
-	Write-Error "[!] Failed to fetch JWT..."
-	Write-Error $_.Exception.Message
-	exit 1
-}
-
 # Disable Windows Virtus and Threat Protection
-Write-Warning "[*] Installing/Running Sharphound requires Windows Protection to be disabled temporarily..."
+Write-Warning "[*] Downloading/Running Sharphound requires Windows Protection to be disabled temporarily..."
 
-Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Disabling Windows Protection temporarily..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
+Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Disabling Windows Protection temporarily..." -Id 0 -PercentComplete (CalculateProgressPercentage)
 $currentScriptTask = $currentScriptTask + 1
 
 # Original values
@@ -186,19 +153,15 @@ $submitSamplesConsentOriginal = (Get-MpPreference).SubmitSamplesConsent
 
 ManageWindowsProtection -Disable
 
-# Downloading Sharphound archive from Bloodhound API
-$HEADERS = @{
-	"Authorization" = "Bearer $JWT"
-}
-
-Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Downloading Sharphound archive from Bloodhound API..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
-$currentScriptTask = $currentScriptTask + 1
+Write-Host "<PROGRESS>(CalculateProgressPercentage)%</PROGRESS>"
+Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Downloading the Sharphound archive..." -Id 0 -PercentComplete (CalculateProgressPercentage)
+$currentTask = $currentTask + 1
 
 try
 {
-	Write-Host "[*] Downloading Sharphound..." -ForegroundColor Cyan
+	Write-Host "[*] Downloading the Sharphound archive..." -ForegroundColor Cyan
 
-	Invoke-RestMethod -Uri "$BLOODHOUND_BASE_URL$SHARPHOUND_DOWNLOAD_ENDPOINT" -Method GET -Headers $HEADERS -Outfile $sharphoundZipPath -ErrorAction Stop
+	Invoke-RestMethod -Uri "https://github.com/SpecterOps/SharpHound/releases/download/v2.7.2/SharpHound_v2.7.2_windows_x86.zip" -Outfile $sharphoundZipPath -ErrorAction Stop
 
 	Write-Host "[*] Downloaded Sharphound into $sharphoundZipPath." -ForegroundColor Cyan
 } catch
@@ -214,8 +177,9 @@ try
 # Extracting downloaded Sharphound archive
 try
 {
-	Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Extracting Sharphound archive..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
-	$currentScriptTask = $currentScriptTask + 1
+	Write-Host "<PROGRESS>(CalculateProgressPercentage)%</PROGRESS>"
+	Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Extracting Sharphound archive..." -Id 0 -PercentComplete (CalculateProgressPercentage)
+	$currentTask = $currentTask + 1
 
 	Write-Host "[*] Extracting $sharphoundZipPath..." -ForegroundColor Cyan
 
@@ -235,8 +199,9 @@ try
 }
 
 # Create directory for Sharphound results
-Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Creating directory for Sharphound results..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
-$currentScriptTask = $currentScriptTask + 1
+Write-Host "<PROGRESS>(CalculateProgressPercentage)%</PROGRESS>"
+Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Creating directory for Sharphound results..." -Id 0 -PercentComplete (CalculateProgressPercentage)
+$currentTask = $currentTask + 1
 
 try
 {
@@ -254,15 +219,16 @@ try
 }
 
 # Run Sharphound scan
-Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Running Sharphound scan..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
-$currentScriptTask = $currentScriptTask + 1
+Write-Host "<PROGRESS>(CalculateProgressPercentage)%</PROGRESS>"
+Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Running Sharphound scan..." -Id 0 -PercentComplete (CalculateProgressPercentage)
+$currentTask = $currentTask + 1
 
 try
 {
 	Write-Host "[*] Running Sharphound..." -ForegroundColor Cyan
 	Start-Process -Wait -FilePath $sharphoundExePath -ArgumentList "-c All --OutputDirectory $sharphoundResultsPath" -ErrorAction Stop
-	$createdZipFiles = (Get-ChildItem -Path $sharphoundResultsPath -Filter "*_Bloodhound.zip").Name -join ", "
-	Write-Host "[*] Sharphound scan is done. The results are contained in the following zip files: $createdZipFiles" -ForegroundColor Cyan
+	$resultZipFiles = (Get-ChildItem -Path $sharphoundResultsPath -Filter "*_Bloodhound.zip").Name -join ", "
+	Write-Host "[*] Sharphound scan is done. The results are contained in the following zip files: $resultZipFiles" -ForegroundColor Cyan
 } catch
 {
 	Write-Error "[!] Error running Sharphound."
@@ -276,44 +242,32 @@ try
 	exit 1
 }
 
-Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Resetting Windows Protection..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
-$currentScriptTask = $currentScriptTask + 1
+Write-Host "<PROGRESS>(CalculateProgressPercentage)%</PROGRESS>"
+Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Resetting Windows Protection..." -Id 0 -PercentComplete (CalculateProgressPercentage)
+$currentTask = $currentTask + 1
 
 # Reset Windows Protection
 ManageWindowsProtection -Reset
 
-# Install required AWS.Tools modules
-Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Installing required 'AWS.Tools' PowerShell modules..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
-$currentScriptTask = $currentScriptTask + 1
-
-try
-{
-	Write-Host "[*] Installing 'AWS.Tools.Installer' PowerShell module..." -ForegroundColor Cyan
-	Install-Module -Name AWS.Tools.Installer -Force -ErrorAction Stop
-	Write-Host "[*] Installed 'AWS.Tools.Installer' PowerShell module." -ForegroundColor Cyan
-	
-	Write-Host "[*] Installing 'AWS.Tools.S3' PowerShell module..." -ForegroundColor Cyan
-	Install-AWSToolsModule AWS.Tools.S3 -CleanUp -Force
-	Write-Host "[*] Installed 'AWS.Tools.S3' PowerShell module." -ForegroundColor Cyan
-} catch
-{
-	Write-Error "[!] Failed to install 'AWS.Tools' module."
-	Write-Error $_.Exception.Message
-	
-	RemoveSharphoundZip
-	RemoveSharphoundFolder
-	
-	exit 1
-}
-
 # Upload Sharphound scan results to S3 Bucket
-$S3_OBJECT_PREFIX = 
-Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Uploading Sharphound results to Amazon S3..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
-$currentScriptTask = $currentScriptTask + 1
+Write-Host "<PROGRESS>(CalculateProgressPercentage)%</PROGRESS>"
+Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Uploading Sharphound results to Amazon S3..." -Id 0 -PercentComplete (CalculateProgressPercentage)
+$currentTask = $currentTask + 1
 
-Write-Host "<S3BUCKET></S3BUCKET>"
-
-foreach ($
+foreach ($result in $resultZipFiles)
+{
+	try
+	{
+		Write-Host "[*] Uploading '$result' to S3 bucket..." -ForegroundColor Cyan
+		Invoke-WebRequest -Uri $S3PresignedURL -Method PUT -InFile $result -ContentType "text/plain"
+		Write-Host "[*] Uploaded '$result' to S3 bucket" -ForegroundColor Cyan
+	} catch
+	{
+		Write-Error "[!] Failed to upload file: '$result'."
+		Write-Error $_.Exception.Message
+		exit 1
+	}
+}
 
 # Clean up
 CleanUp
