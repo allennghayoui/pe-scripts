@@ -9,7 +9,7 @@
 	Specifies the presigned URL for the S3 bucket which the Sharphound scan results will be uploaded to.
 
 	.EXAMPLE
-	PS> .\sharphound.ps1 -S3PresignedURL 
+	PS> .\sharphound.ps1 -S3PresignedURL "https://bucketName.s3.regionName.amazonaws.com/objectKeyName?X-Amz-Expires=1800&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIASU566TYA4JKDNJ4R%2F20251001%2Feu-west-3%2Fs3%2Faws4_request&X-Amz-Date=20251001T120815Z&X-Amz-SignedHeaders=host&X-Amz-Signature=b037ab8f0c15936046dc7b0f847909b667cfc06f1dbcb956fbaff7ef0c2caa7b"
 #>
 
 param(
@@ -17,6 +17,7 @@ param(
 	[string] $S3PresignedURL
 )
 
+######################################## Function Declarations ########################################
 
 function ManageWindowsProtection
 {
@@ -80,16 +81,15 @@ function ManageWindowsProtection
 	return $null
 }
 
-# Function declarations
 function RemoveSharphoundZip
 {
 	if ((Test-Path -Path $sharphoundZipPath))
 	{
 		try
 		{
-			Write-Host "[*] Deleting $sharphoundZipPath..." -ForegroundColor Cyan
+			Write-Host "[*] Deleting '$sharphoundZipPath'..." -ForegroundColor Cyan
 			Remove-Item -Path $sharphoundZipPath -Force
-			Write-Host "[*] Deleted $sharphoundZipPath." -ForegroundColor Cyan
+			Write-Host "[*] Deleted '$sharphoundZipPath'." -ForegroundColor Cyan
 		} catch
 		{
 			Write-Error $_.Exception.Message
@@ -104,9 +104,26 @@ function RemoveSharphoundFolder
 	{
 		try
 		{
-			Write-Host "[*] Deleting $sharphoundPath..." -ForegroundColor Cyan
+			Write-Host "[*] Deleting '$sharphoundPath'..." -ForegroundColor Cyan
 			Remove-Item -Path $sharphoundPath -Force -Recurse
-			Write-Host "[*] Deleted $sharphoundPath." -ForegroundColor Cyan
+			Write-Host "[*] Deleted '$sharphoundPath'." -ForegroundColor Cyan
+		} catch
+		{
+			Write-Error $_.Exception.Message
+			exit 1
+		}
+	}
+}
+
+function RemoveSharphoundResultsFolder
+{
+	if ((Test-Path -Path $sharphoundResultsPath))
+	{
+		try
+		{
+			Write-Host "[*] Deleting '$sharphoundResultsPath'..." -ForegroundColor Cyan
+			Remove-Item -Path $sharphoundResultsPath -Force -Recurse
+			Write-Host "[*] Deleted '$sharphoundResultsPath'." -ForegroundColor Cyan
 		} catch
 		{
 			Write-Error $_.Exception.Message
@@ -119,6 +136,7 @@ function CleanUp
 {
 	RemoveSharphoundZip
 	RemoveSharphoundFolder
+	RemoveSharphoundResultsFolder
 }
 
 function CalculateProgressPercentage
@@ -128,9 +146,10 @@ function CalculateProgressPercentage
 }
 
 
-# Variables
+######################################## Variable Declarations ########################################
+
 # Progress
-$totalTasks = 6
+$totalTasks = 7
 $currentTask = 1
 
 # Paths
@@ -140,11 +159,13 @@ $sharphoundPath = "$tempPath\sharphound"
 $sharphoundResultsPath = "$tempPath\SharphoundResults"
 $sharphoundExePath = "$sharphoundPath\Sharphound.exe"
 
+######################################## Script Start ########################################
+
 # Disable Windows Virtus and Threat Protection
 Write-Warning "[*] Downloading/Running Sharphound requires Windows Protection to be disabled temporarily..."
 
 Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Disabling Windows Protection temporarily..." -Id 0 -PercentComplete (CalculateProgressPercentage)
-$currentScriptTask = $currentScriptTask + 1
+$currentTask = $currentTask + 1
 
 # Original values
 $realtimeMonitoringOriginal = (Get-MpPreference).DisableRealtimeMonitoring
@@ -153,7 +174,7 @@ $submitSamplesConsentOriginal = (Get-MpPreference).SubmitSamplesConsent
 
 ManageWindowsProtection -Disable
 
-Write-Host "<PROGRESS>(CalculateProgressPercentage)%</PROGRESS>"
+Write-Host "<PROGRESS>$(CalculateProgressPercentage)%</PROGRESS>"
 Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Downloading the Sharphound archive..." -Id 0 -PercentComplete (CalculateProgressPercentage)
 $currentTask = $currentTask + 1
 
@@ -177,7 +198,7 @@ try
 # Extracting downloaded Sharphound archive
 try
 {
-	Write-Host "<PROGRESS>(CalculateProgressPercentage)%</PROGRESS>"
+	Write-Host "<PROGRESS>$(CalculateProgressPercentage)%</PROGRESS>"
 	Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Extracting Sharphound archive..." -Id 0 -PercentComplete (CalculateProgressPercentage)
 	$currentTask = $currentTask + 1
 
@@ -199,7 +220,7 @@ try
 }
 
 # Create directory for Sharphound results
-Write-Host "<PROGRESS>(CalculateProgressPercentage)%</PROGRESS>"
+Write-Host "<PROGRESS>$(CalculateProgressPercentage)%</PROGRESS>"
 Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Creating directory for Sharphound results..." -Id 0 -PercentComplete (CalculateProgressPercentage)
 $currentTask = $currentTask + 1
 
@@ -219,7 +240,7 @@ try
 }
 
 # Run Sharphound scan
-Write-Host "<PROGRESS>(CalculateProgressPercentage)%</PROGRESS>"
+Write-Host "<PROGRESS>$(CalculateProgressPercentage)%</PROGRESS>"
 Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Running Sharphound scan..." -Id 0 -PercentComplete (CalculateProgressPercentage)
 $currentTask = $currentTask + 1
 
@@ -242,16 +263,16 @@ try
 	exit 1
 }
 
-Write-Host "<PROGRESS>(CalculateProgressPercentage)%</PROGRESS>"
-Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Resetting Windows Protection..." -Id 0 -PercentComplete (CalculateProgressPercentage)
+Write-Host "<PROGRESS>$(CalculateProgressPercentage)%</PROGRESS>"
+Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Resetting Windows Protection..." -Id 0 -PercentComplete $(CalculateProgressPercentage)
 $currentTask = $currentTask + 1
 
 # Reset Windows Protection
 ManageWindowsProtection -Reset
 
 # Upload Sharphound scan results to S3 Bucket
-Write-Host "<PROGRESS>(CalculateProgressPercentage)%</PROGRESS>"
-Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Uploading Sharphound results to Amazon S3..." -Id 0 -PercentComplete (CalculateProgressPercentage)
+Write-Host "<PROGRESS>$(CalculateProgressPercentage)%</PROGRESS>"
+Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Uploading Sharphound results to Amazon S3..." -Id 0 -PercentComplete $(CalculateProgressPercentage)
 $currentTask = $currentTask + 1
 
 foreach ($result in $resultZipFiles)
@@ -259,7 +280,7 @@ foreach ($result in $resultZipFiles)
 	try
 	{
 		Write-Host "[*] Uploading '$result' to S3 bucket..." -ForegroundColor Cyan
-		Invoke-WebRequest -Uri $S3PresignedURL -Method PUT -InFile $result -ContentType "text/plain"
+		Invoke-WebRequest -Uri $S3PresignedURL -Method PUT -InFile "$sharphoundResultsPath\$result" -ContentType "text/plain" | Out-Null
 		Write-Host "[*] Uploaded '$result' to S3 bucket" -ForegroundColor Cyan
 	} catch
 	{
