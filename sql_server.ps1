@@ -49,8 +49,6 @@
 # SQL Server Express 2022 download link
 # https://go.microsoft.com/fwlink/p/?linkid=2216019&culture=en-us
 
-############################################################################
-
 param(
 	[Parameter(Mandatory=$true)]
 	[string] $InstanceName,
@@ -69,12 +67,7 @@ param(
 	[string] $SqlSvcStartupType = "Automatic"
 )
 
-
-#########################################################
-#########################################################
-################  FUNCTION DECLARATIONS  ################
-#########################################################
-#########################################################
+######################################## Function Declarations ########################################
 
 function CleanUp
 {
@@ -222,6 +215,7 @@ function SplitPrefixFromUsername
 	return $domain, $name	
 }
 
+# Checks the domain validity and returns its info
 function CheckDomainValidityAndGetDomainInfo
 {
 	param(
@@ -277,13 +271,8 @@ function CheckActiveDirectoryAvailabilityAndImport
 	}
 }
 
-#################################################
-#################################################
-################  SCRIPT STARTS  ################
-#################################################
-#################################################
+######################################## Variable Declarations ########################################
 
-# Variables
 $totalScriptTasks = 17
 $currentScriptTask = 1
 $tempPath = "$env:TEMP"
@@ -295,6 +284,7 @@ $sqlServerSetupPath = "$sqlServerSetupFilesPath\SETUP.EXE"
 $sqlSysAdminAccountsFormattedString = ""
 $sqlSvcAccount = $SqlSvcUsername
 
+######################################## Script Starts ########################################
 
 # Import ActiveDirectory PowerShell module
 Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking ActiveDirectory module installed..." -Id 0 -PercentComplete (($currentScriptTask / $totalScriptTasks) * 100)
