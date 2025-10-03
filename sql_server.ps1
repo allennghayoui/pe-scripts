@@ -129,6 +129,27 @@ function CleanUp
 	
 	function RemoveExtraFiles
 	{
+		if ((Test-Path -Path $sqlServerExtractorPath))
+		{
+			Write-Host "[*] Removing '$sqlServerExtractorPath'..." -ForegroundColor Cyan
+			Remove-Item -Path $sqlServerExtractorPath -Force
+			Write-Host "[*] Removed '$sqlServerExtractorPath'." -ForegroundColor Cyan
+		}
+
+		if ((Test-Path -Path $sqlServerExprEnuSetupPath))
+		{
+			Write-Host "[*] Removing '$sqlServerExprEnuSetupPath'..." -ForegroundColor Cyan
+			Remove-Item -Path $sqlServerExprEnuSetupPath -Force
+			Write-Host "[*] Removed '$sqlServerExprEnuSetupPath'." -ForegroundColor Cyan
+		}
+
+		if ((Test-Path -Path $sqlServerSetupFilesPath))
+		{
+			Write-Host "[*] Removing '$sqlServerSetupFilesPath'..." -ForegroundColor Cyan
+			Remove-Item -Path $sqlServerSetupFilesPath -Force -Recurse
+			Write-Host "[*] Removed '$sqlServerSetupFilesPath'." -ForegroundColor Cyan
+		}
+
 		if ((Test-Path -Path $sqlServerSetupPath))
 		{
 			Write-Host "[*] Removing '$sqlServerSetupPath'..." -ForegroundColor Cyan
@@ -141,20 +162,6 @@ function CleanUp
 			Write-Host "[*] Removing '$sqlServerConfigFilePath'..." -ForegroundColor Cyan
 			Remove-Item -Path $sqlServerConfigFilePath -Force
 			Write-Host "[*] Removed '$sqlServerConfigFilePath'." -ForegroundColor Cyan
-		}
-		
-		if ((Test-Path -Path $sqlServerSetupStdoutPath))
-		{
-			Write-Host "[*] Removing '$sqlServerSetupStdoutPath'..." -ForegroundColor Cyan
-			Remove-Item -Path $sqlServerSetupStdoutPath -Force
-			Write-Host "[*] Removed '$sqlServerSetupStdoutPath'." -ForegroundColor Cyan
-		}
-		
-		if ((Test-Path -Path $sqlServerSetupStderrPath))
-		{
-			Write-Host "[*] Removing '$sqlServerSetupStderrPath'..." -ForegroundColor Cyan
-			Remove-Item -Path $sqlServerSetupStderrPath -Force
-			Write-Host "[*] Removed '$sqlServerSetupStderrPath'." -ForegroundColor Cyan
 		}
 	}
 	
@@ -553,8 +560,8 @@ Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Do
 $currentTask = $currentTask + 1
 
 # Download SQL Server Installer
-Write-Host "[*] Downloading SQL Server Installer into $sqlServerSetupPath..." -ForegroundColor Cyan
-Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?linkid=2216019&culture=en-us" -OutFile $sqlServerSetupPath -UseBasicParsing
+Write-Host "[*] Downloading SQL Server Installer into $sqlServerExtractorPath..." -ForegroundColor Cyan
+Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?linkid=2216019&culture=en-us" -OutFile $sqlServerExtractorPath -UseBasicParsing
 
 $progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
 Write-Host "<PROGRESS>$progress%</PROGRESS>"
