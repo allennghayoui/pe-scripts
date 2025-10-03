@@ -162,7 +162,7 @@ $currentTask = $currentTask + 1
 Write-Host "<USER>[*] Checking Windows Feature 'DNS' installed...</USER>" -ForegroundColor Cyan
 
 $dnsWindowsFeatureInstallState = (Get-WindowsFeature -Name DNS).InstallState
-if (-not $dnsWindowsFeatureInstallState -ne "Installed")
+if ($dnsWindowsFeatureInstallState -ne "Installed")
 {
 	Write-Host "Installing Windows Feature: 'DNS'..." -ForegroundColor Cyan
 	Install-WindowsFeature -Name DNS -IncludeManagementTools
