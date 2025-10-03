@@ -185,7 +185,7 @@ $submitSamplesConsentOriginal = (Get-MpPreference).SubmitSamplesConsent
 ManageWindowsProtection -Disable
 
 $progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
-Write-Host "<PROGRESS>$progress</PROGRESS>"
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
 Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Downloading the Sharphound archive..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
@@ -210,7 +210,7 @@ try
 try
 {
 	$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
-	Write-Host "<PROGRESS>$progress</PROGRESS>"
+	Write-Host "<PROGRESS>$progress%</PROGRESS>"
 	Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Extracting Sharphound archive..." -Id 0 -PercentComplete $progress
 	$currentTask = $currentTask + 1
 
@@ -233,7 +233,7 @@ try
 
 # Create directory for Sharphound results
 $progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
-Write-Host "<PROGRESS>$progress</PROGRESS>"
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
 Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Creating directory for Sharphound results..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
@@ -254,7 +254,7 @@ try
 
 # Run Sharphound scan
 $progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
-Write-Host "<PROGRESS>$progress</PROGRESS>"
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
 Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Running Sharphound scan..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
@@ -278,7 +278,7 @@ try
 }
 
 $progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
-Write-Host "<PROGRESS>$progress</PROGRESS>"
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
 Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Resetting Windows Protection..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
@@ -287,7 +287,7 @@ ManageWindowsProtection -Reset
 
 # Upload Sharphound scan results to S3 Bucket
 $progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
-Write-Host "<PROGRESS>$progress</PROGRESS>"
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
 Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Uploading Sharphound results to Amazon S3..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
