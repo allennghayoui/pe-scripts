@@ -131,7 +131,8 @@ Write-Host "<USER>[*] Compiling DSC configuration...</USER>" -ForegroundColor Cy
 ADDomain_NewForest_Config -DomainNameInner $DomainName `
 	-CredentialInner $AdminCred `
 	-DSRMPasswordInner $DSRMPasswordCred `
-	-ConfigurationData $ConfigData
+	-ConfigurationData $ConfigData `
+	-OutputPath $compiledDscConfigPath
 Write-Host "<USER>[*] DSC configuration compiled.</USER>" -ForegroundColor Cyan
 
 $progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
