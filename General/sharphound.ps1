@@ -141,7 +141,14 @@ function CleanUp
 
 function CalculateProgressPercentage
 {
-	$percentage = ($currentTask / $totalTasks) * 100
+	param(
+		[Parameter(Mandatory=$true)]
+		[int] $CurrentTask,
+		[Parameter(Mandatory=$true)]
+		[int] $TotalTasks
+	)
+
+	$percentage = ($CurrentTask / $TotalTasks) * 100
 	return [math]::Round($percentage, 2)
 }
 
@@ -151,6 +158,7 @@ function CalculateProgressPercentage
 # Progress
 $totalTasks = 7
 $currentTask = 1
+$progress = $null
 
 # Paths
 $tempPath = "$env:TEMP"
@@ -164,7 +172,9 @@ $sharphoundExePath = "$sharphoundPath\Sharphound.exe"
 # Disable Windows Virtus and Threat Protection
 Write-Warning "[*] Downloading/Running Sharphound requires Windows Protection to be disabled temporarily..."
 
-Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Disabling Windows Protection temporarily..." -Id 0 -PercentComplete (CalculateProgressPercentage)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Disabling Windows Protection temporarily..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 # Original values
@@ -174,8 +184,9 @@ $submitSamplesConsentOriginal = (Get-MpPreference).SubmitSamplesConsent
 
 ManageWindowsProtection -Disable
 
-Write-Host "<PROGRESS>$(CalculateProgressPercentage)%</PROGRESS>"
-Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Downloading the Sharphound archive..." -Id 0 -PercentComplete (CalculateProgressPercentage)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress</PROGRESS>"
+Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Downloading the Sharphound archive..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 try
@@ -198,8 +209,9 @@ try
 # Extracting downloaded Sharphound archive
 try
 {
-	Write-Host "<PROGRESS>$(CalculateProgressPercentage)%</PROGRESS>"
-	Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Extracting Sharphound archive..." -Id 0 -PercentComplete (CalculateProgressPercentage)
+	$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+	Write-Host "<PROGRESS>$progress</PROGRESS>"
+	Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Extracting Sharphound archive..." -Id 0 -PercentComplete $progress
 	$currentTask = $currentTask + 1
 
 	Write-Host "[*] Extracting $sharphoundZipPath..." -ForegroundColor Cyan
@@ -220,8 +232,9 @@ try
 }
 
 # Create directory for Sharphound results
-Write-Host "<PROGRESS>$(CalculateProgressPercentage)%</PROGRESS>"
-Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Creating directory for Sharphound results..." -Id 0 -PercentComplete (CalculateProgressPercentage)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress</PROGRESS>"
+Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Creating directory for Sharphound results..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 try
@@ -240,8 +253,9 @@ try
 }
 
 # Run Sharphound scan
-Write-Host "<PROGRESS>$(CalculateProgressPercentage)%</PROGRESS>"
-Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Running Sharphound scan..." -Id 0 -PercentComplete (CalculateProgressPercentage)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress</PROGRESS>"
+Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Running Sharphound scan..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 try
@@ -263,22 +277,31 @@ try
 	exit 1
 }
 
-Write-Host "<PROGRESS>$(CalculateProgressPercentage)%</PROGRESS>"
-Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Resetting Windows Protection..." -Id 0 -PercentComplete $(CalculateProgressPercentage)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress</PROGRESS>"
+Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Resetting Windows Protection..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 # Reset Windows Protection
 ManageWindowsProtection -Reset
 
 # Upload Sharphound scan results to S3 Bucket
-Write-Host "<PROGRESS>$(CalculateProgressPercentage)%</PROGRESS>"
-Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Uploading Sharphound results to Amazon S3..." -Id 0 -PercentComplete $(CalculateProgressPercentage)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress</PROGRESS>"
+Write-Progress -Activity "Sharphound Installation and Scan" -CurrentOperation "Uploading Sharphound results to Amazon S3..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
+$currentFileUpload = 1
+$totalFileUploads = $resultZipFiles.Length
+$fileUploadProgress = $null
 foreach ($result in $resultZipFiles)
 {
 	try
 	{
+		$fileUploadProgress = CalculateProgressPercentage -CurrentTask $currentFileUpload -TotalTasks $totalFileUploads
+		Write-Progress -Activity "Uploading Sharphound result ZIP file: '$result'..." -Id 1 -ParentId 0 -PercentComplete $fileUploadProgress
+		$currentFileUpload = $currentFileUpload + 1
+
 		Write-Host "[*] Uploading '$result' to S3 bucket..." -ForegroundColor Cyan
 		Invoke-WebRequest -Uri $S3PresignedURL -Method PUT -InFile "$sharphoundResultsPath\$result" -ContentType "text/plain" | Out-Null
 		Write-Host "[*] Uploaded '$result' to S3 bucket" -ForegroundColor Cyan
@@ -289,6 +312,7 @@ foreach ($result in $resultZipFiles)
 		exit 1
 	}
 }
+Write-Progress -Activity "Uploading Sharphound result ZIP file: '$result'..." -Id 1 -ParentId 0 -Completed
 
 # Clean up
 CleanUp
