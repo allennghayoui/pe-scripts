@@ -278,7 +278,8 @@ ADDomain_NewChildDomain_Config -ParentDomain $ParentDomainName `
 	-FullFQDN $FinalFQDN `
 	-CredentialInner $AdminCred `
 	-DSRMPasswordInner $DSRMPasswordCred `
-	-ConfigurationData $ConfigData
+	-ConfigurationData $ConfigData `
+	-OutputPath $compiledDscConfigPath
 Write-Host "<USER>[*] Compiled DSC configuration for child domain: '$FinalFQDN'.</USER>"
 
 $progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
