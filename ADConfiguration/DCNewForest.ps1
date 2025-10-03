@@ -52,7 +52,7 @@ function CleanUp
 
 # Progress
 $currentTask = 1
-$totalTasks = 4
+$totalTasks = 5
 $progress = $null
 
 # Paths
@@ -153,6 +153,13 @@ Write-Host "<USER>[*] Installing ADCS Certificate Authority role...</USER>" -For
 Install-WindowsFeature -Name ADCS-Cert-Authority -IncludeManagementTools
 Start-Sleep -Seconds 10
 Write-Host "<USER>[*] Installed ADCS Certificate Authority role.</USER>" -ForegroundColor Cyan
+
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "Setup New AD Forest" -CurrentOperation "Cleaning up..." -Id 0 -PercentComplete $progress
+$currentTask = $currentTask + 1
+
+CleanUp
 
 Write-Progress -Activity "Setup New AD Forest" -CurrentOperation "Installing ADCS Certificate Authority role..." -Id 0 -Completed
 
