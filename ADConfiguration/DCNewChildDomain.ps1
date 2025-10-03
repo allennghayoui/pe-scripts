@@ -153,6 +153,23 @@ try
 }
 
 # Step 3: Add conditional forwarder
+# Check if DNS Windows Feature Installed
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "Setup New AD Child Domain" -CurrentOperation "Installing Windows Feature: 'DNS'..." -Id 0 -PercentComplete $progress
+$currentTask = $currentTask + 1
+
+Write-Host "<USER>[*] Checking Windows Feature 'DNS' installed...</USER>" -ForegroundColor Cyan
+
+$dnsWindowsFeatureInstallState = (Get-WindowsFeature -Name DNS).InstallState
+if (-not $dnsWindowsFeatureInstallState -ne "Installed")
+{
+	Write-Host "Installing Windows Feature: 'DNS'..." -ForegroundColor Cyan
+	Install-WindowsFeature -Name DNS -IncludeManagementTools
+	Write-Host "Installed Windows Feature: 'DNS'." -ForegroundColor Cyan
+}
+Import-Module DnsServer
+
 # Check if conditional forwarder already exists
 $progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
 Write-Host "<PROGRESS>$progress%</PROGRESS>"
