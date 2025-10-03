@@ -11,7 +11,7 @@
 
 ######################################## Function Declarations ########################################
 
-function CalculatProgressPercentage
+function CalculateProgressPercentage
 {
 	param(
 		[Parameter(Mandatory=$true)]
@@ -30,6 +30,7 @@ function CalculatProgressPercentage
 # Progress
 $totalTasks = 25
 $currentTask = 1
+$progress = $null
 
 # Paths
 $tempDir = "$env:TEMP"
@@ -42,7 +43,9 @@ if (-not (Test-Path $phpPath))
 {
 	try
 	{
-		Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Downloading VC_redist.x64.exe..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+		$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+		Write-Host "<PROGRESS>$progress%</PROGRESS>"
+		Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Downloading VC_redist.x64.exe..." -Id 0 -PercentComplete $progress
 		$currentTask = $currentTask + 1
 		
 		# Install PHP pre-requisite VC_redist.x64.exe
@@ -52,7 +55,9 @@ if (-not (Test-Path $phpPath))
 
 		Write-Host "[*] Downloaded VC_redist.x64.exe." -ForegroundColor Cyan
 
-		Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Installing VC_redist.x64.exe..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+		$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+		Write-Host "<PROGRESS>$progress%</PROGRESS>"
+		Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Installing VC_redist.x64.exe..." -Id 0 -PercentComplete $progress
 		$currentTask = $currentTask + 1
 
 		Write-Host "[*] Installing VC_redist.x64.exe..." -ForegroundColor Cyan
@@ -69,12 +74,16 @@ if (-not (Test-Path $phpPath))
 
 	try
 	{
-		Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Creating directory: '$phpPath'..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+		$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+		Write-Host "<PROGRESS>$progress%</PROGRESS>"
+		Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Creating directory: '$phpPath'..." -Id 0 -PercentComplete $progress
 		$currentTask = $currentTask + 1
 	
 		New-Item -ItemType Directory -Path $phpPath | Out-Null
 
-		Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Downloading PHP ZIP file..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+		$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+		Write-Host "<PROGRESS>$progress%</PROGRESS>"
+		Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Downloading PHP ZIP file..." -Id 0 -PercentComplete $progress
 		$currentTask = $currentTask + 1
 		
 		# Download PHP zip
@@ -82,7 +91,9 @@ if (-not (Test-Path $phpPath))
 
 		Invoke-WebRequest -Uri "https://windows.php.net/downloads/releases/archives/php-8.4.12-nts-Win32-vs17-x64.zip" -OutFile $phpZip -UseBasicParsing
 
-		Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Extracting PHP ZIP file..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+		$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+		Write-Host "<PROGRESS>$progress%</PROGRESS>"
+		Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Extracting PHP ZIP file..." -Id 0 -PercentComplete $progress
 		$currentTask = $currentTask + 1
 		
 		# Extract files into C:\PHP
@@ -130,7 +141,9 @@ $mysqlServiceName = "MySQL"
 # Download MySQL MSI
 if (-not (Test-Path $mysqlInstallerPath))
 {
-	Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Downloading MySQL MSI..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+	$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+	Write-Host "<PROGRESS>$progress%</PROGRESS>"
+	Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Downloading MySQL MSI..." -Id 0 -PercentComplete $progress
 	$currentTask = $currentTask + 1
 
 	Write-Host "[*] Downloading MySQL MSI..." -ForegroundColor Cyan
@@ -139,7 +152,9 @@ if (-not (Test-Path $mysqlInstallerPath))
 
 	Write-Host "[*] MySQL MSI downloaded." -ForegroundColor Cyan
 
-	Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Extracting MySQL MSI into '$mysqlMsiExtractedContent'..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+	$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+	Write-Host "<PROGRESS>$progress%</PROGRESS>"
+	Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Extracting MySQL MSI into '$mysqlMsiExtractedContent'..." -Id 0 -PercentComplete $progress
 	$currentTask = $currentTask + 1
 
 	Write-Host "[*] Extracting MySQL MSI into '$mysqlMsiExtractedContent'..." -ForegroundColor Cyan
@@ -163,7 +178,9 @@ if (-not (Test-Path $mysqlBinPath))
 	# Install MySQL Server using MySQLInstallerConsole.exe
 	try
 	{
-		Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Installing MySQL Server..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+		$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+		Write-Host "<PROGRESS>$progress%</PROGRESS>"
+		Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Installing MySQL Server..." -Id 0 -PercentComplete $progress
 		$currentTask = $currentTask + 1
 
 		Write-Host "[*] Installing MySQL Server..." -ForegroundColor Cyan
@@ -184,7 +201,9 @@ if (-not (Get-Service $mysqlServiceName -ErrorAction SilentlyContinue))
 	# Install MySQL Server Windows Service
 	try
 	{
-		Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Installing MySQL Server Windows Service: '$mysqlServiceName'..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+		$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+		Write-Host "<PROGRESS>$progress%</PROGRESS>"
+		Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Installing MySQL Server Windows Service: '$mysqlServiceName'..." -Id 0 -PercentComplete $progress
 		$currentTask = $currentTask + 1
 
 		Write-Host "[*] Installing MySQL Server Windows Service: '$mysqlServiceName'..." -ForegroundColor Cyan
@@ -202,7 +221,9 @@ if (-not (Get-Service $mysqlServiceName -ErrorAction SilentlyContinue))
 	# Initialize MySQL Server Windows Service
 	try
 	{
-		Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Initializing MySQL Server Windows Service: '$mysqlServiceName'..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+		$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+		Write-Host "<PROGRESS>$progress%</PROGRESS>"
+		Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Initializing MySQL Server Windows Service: '$mysqlServiceName'..." -Id 0 -PercentComplete $progress
 		$currentTask = $currentTask + 1
 
 		Write-Host "[*] Initializing MySQL Server Windows Service: '$mysqlServiceName'..." -ForegroundColor Cyan
@@ -250,7 +271,9 @@ $dvwaSitePath = "C:\inetpub\wwwroot\dvwa"
 $dvwaPhpConfig = "$dvwaSitePath\config\config.inc.php"
 $dvwaSiteName = "DVWA"
 
-Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Downloading DVWA ZIP file..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Downloading DVWA ZIP file..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 # Download and configure DVWA with IIS
@@ -266,7 +289,9 @@ try
 	exit 1
 }
 
-Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Extracting DVWA ZIP file into '$dvwaZipPath'..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Extracting DVWA ZIP file into '$dvwaZipPath'..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 Write-Host "[*] Extracting DVWA ZIP file into '$dvwaZipPath'..." -ForegroundColor Cyan
@@ -281,13 +306,17 @@ if ((Test-Path $dvwaSitePath))
 	Remove-Item -Path $dvwaSitePath -Recurse -Force
 }
 
-Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Moving DVWA files into '$dvwaSitePath'..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Moving DVWA files into '$dvwaSitePath'..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 # Move contents of $tempDir\DVWA-master into C:\inetpub\wwwroot\dvwa
 Move-Item $dvwaSrcPath $dvwaSitePath -Force
 
-Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Installing WebAdministration PowerShell module..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Installing WebAdministration PowerShell module..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 # Check for WebAdministration PowerShell module installation
@@ -310,14 +339,18 @@ if (-not $webAdministrationModuleAvailable)
 Import-Module WebAdministration
 
 # Stop IIS Default Web Site
-Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Stopping IIS website: 'Default Web Site'..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Stopping IIS website: 'Default Web Site'..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 Write-Host "[*] Stopping IIS website: 'Default Web Site'..." -ForegroundColor Cyan
 Stop-Website "Default Web Site"
 Write-Host "[*] Stopped IIS website: 'Default Web Site'." -ForegroundColor Cyan
 
-Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Stopping IIS website: 'Default Web Site'..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Stopping IIS website: 'Default Web Site'..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 Write-Host "[*] Removing IIS website 'Default Web Site'..." -ForegroundColor Cyan
@@ -325,14 +358,18 @@ Remove-Item "IIS:\Sites\Default Web Site" -Recurse
 Write-Host "[*] Removing IIS website: 'Default Web Site'..." -ForegroundColor Cyan
 
 # Create new IIS Site called DVWA
-Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Creating IIS website: '$dvwaSiteName'..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Creating IIS website: '$dvwaSiteName'..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 Write-Host "[*] Creating IIS website: '$dvwaSiteName'..." -ForegroundColor Cyan
 New-Item "IIS:\Sites\$dvwaSiteName" -bindings @{protocol="http";bindingInformation="*:80:"} -physicalPath "C:\inetpub\wwwroot\dvwa" -Force
 Write-Host "[*] Created IIS website: '$dvwaSiteName'..." -ForegroundColor Cyan
 
-Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Starting IIS website: '$dvwaSiteName'..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Starting IIS website: '$dvwaSiteName'..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 # Wait for website to start
@@ -354,7 +391,9 @@ if ($websiteState -ne "Started")
 	exit 1
 }
 
-Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Configuring IIS website: '$dvwaSiteName'..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Configuring IIS website: '$dvwaSiteName'..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 # Add Application under "SERVER_NAME" > "FastCGI Settings" > "Add Application..." in IIS Manager
@@ -372,7 +411,9 @@ Add-WebConfigurationProperty -PSPath "MACHINE/WEBROOT/APPHOST" -Filter "system.w
 Set-WebConfigurationProperty -Filter /system.WebServer/security/authentication/AnonymousAuthentication -name userName -value ""
 
 # Update DVWA config
-Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Updating DVWA config file..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Updating DVWA config file..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 Write-Host "[*] Updating DVWA config file..." -ForegroundColor Cyan
@@ -386,7 +427,9 @@ if (-not (Test-Path $dvwaPhpConfig))
 }
 
 # Add MySQL extensions to php.ini
-Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Adding extensions to php.ini..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Adding extensions to php.ini..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 Write-Host "[*] Adding required extensions to php.ini..." -ForegroundColor Cyan
@@ -401,7 +444,9 @@ Write-Host "[*] Added required extensions to php.ini." -ForegroundColor Cyan
 Write-Host "[*] PHP set up completed." -ForegroundColor Cyan
 
 # Reset IIS
-Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Resetting IIS..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Resetting IIS..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 Write-Host "[*] Resetting IIS..." -ForegroundColor Cyan
@@ -415,14 +460,16 @@ $folders = @(
 	"C:\inetpub\wwwroot\dvwa\hackable\uploads"
 )
 
-Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Granting required permissions..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Granting required permissions..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 $currentFolder = 1
 $totalFolders = $folders.Length
 foreach ($folder in $folders)
 {
-	Write-Progress -Activity "Granting required permissions for $folder" -Id 1 -ParentId 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentFolder -TotalTasks $totalFolders)
+	Write-Progress -Activity "Granting required permissions for $folder" -Id 1 -ParentId 0 -PercentComplete $progress
 	$currentFolder = $currentFolder + 1
 
 	icacls $folder /grant "IIS_IUSRS:(OI)(CI)F" /T
@@ -431,7 +478,9 @@ foreach ($folder in $folders)
 Write-Progress -Activity "Granting required permissions for $folder" -Id 1 -ParentId 0 -Completed
 
 # Create MySQL database for DVWA
-Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Creating MySQL database 'dvwa'..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Creating MySQL database 'dvwa'..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 Write-Host "[*] Creating MySQL database 'dvwa'..." -ForegroundColor Cyan
@@ -449,7 +498,9 @@ FLUSH PRIVILEGES;
 $sql | & $mysqlExePath -u $mySqlUser --password=$mySqlPassword
 
 # Send Request to '/setup.php' to finish DVWA setup.
-Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Running setup.php script..." -Id 0 -PercentComplete (CalculatProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Running setup.php script..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 Write-Host "[*] Running setup.php script..." -ForegroundColor Cyan
@@ -480,7 +531,7 @@ $response = Invoke-WebRequest -Uri $setupUrl -Method POST -Body $formData -WebSe
 
 Write-Host "[*] Finished setting up DVWA." -ForegroundColor Cyan
 
-Write-Progress -Activity "DVWA Install and Setup" -CurrentOperation "Running setup.php script..." -Id 0 -Completed
+Write-Progress -Activity "DVWA Install and Setup" -Id 0 -Completed
 
 Write-Host "[+] DVWA is ready! Browse to http://localhost/" -ForegroundColor Green
 Write-Host "[+] DVWA credentials: 'admin' / 'password'" -ForegroundColor Green
