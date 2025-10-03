@@ -159,7 +159,9 @@ Write-Host "<PROGRESS>$progress%</PROGRESS>"
 Write-Progress -Activity "Setup New AD Forest" -CurrentOperation "Cleaning up..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
+Write-Host "<USER>[*] Cleaning up...</USER>" -ForegroundColor Cyan
 CleanUp
+Write-Host "<USER>[*] Clean up done.</USER>" -ForegroundColor Cyan
 
 Write-Progress -Activity "Setup New AD Forest" -CurrentOperation "Installing ADCS Certificate Authority role..." -Id 0 -Completed
 
