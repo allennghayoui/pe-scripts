@@ -287,26 +287,35 @@ function CheckActiveDirectoryAvailabilityAndImport
 
 ######################################## Variable Declarations ########################################
 
-$totalTasks = 17
-$currentTask = 1 
+# Progress
+$totalTasks = 15
+$currentTask = 1
+$progress = $null
+
+# Paths
 $tempPath = "$env:TEMP"
 $sqlServerConfigFilePath = "$tempPath\sqlserverconfig.ini"
 $sqlServerExtractorPath = "$tempPath\sqlserverextractor.exe"
 $sqlServerExprEnuSetupPath = "$tempPath\SQLEXPR_x64_ENU.exe"
 $sqlServerSetupFilesPath = "$tempPath\SQLServerSetupFiles"
 $sqlServerSetupPath = "$sqlServerSetupFilesPath\SETUP.EXE"
+
 $sqlSysAdminAccountsFormattedString = ""
 $sqlSvcAccount = $SqlSvcUsername
 
 ######################################## Script Starts ########################################
 
 # Import ActiveDirectory PowerShell module
-Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking ActiveDirectory module availability..." -Id 0 -PercentComplete (CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking ActiveDirectory module availability..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 CheckActiveDirectoryAvailabilityAndImport
 
-Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking domain prefix..." -Id 0 -PercentComplete (CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking domain prefix..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 $sqlSvcContainsDomainPrefix = CheckForDomainPrefix -Username $SqlSvcUsername
@@ -322,8 +331,10 @@ if ($isFqdnNullOrEmpty -and $sqlSvcContainsDomainPrefix)
 if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 {
 	$sqlSvcUsernameWithoutPrefix = $SqlSvcUsername
-	
-	Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking SQL Service account username validity..." -Id 0 -PercentComplete (CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+
+	$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+	Write-Host "<PROGRESS>$progress%</PROGRESS>"
+	Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking SQL Service account username validity..." -Id 0 -PercentComplete $progress
 	$currentTask = $currentTask + 1
 
 	# Check the SQL service username validity
@@ -333,13 +344,17 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 	}
 	
 	$existingUser = Get-LocalUser -Name $sqlSvcUsernameWithoutPrefix
-	
-	Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking if local user account exists..." -Id 0 -PercentComplete (CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+
+	$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+	Write-Host "<PROGRESS>$progress%</PROGRESS>"
+	Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking if local user account exists..." -Id 0 -PercentComplete $progress
 	$currentTask = $currentTask + 1
 
 	if (-not $existingUser)
-	{	
-		Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Creating local user..." -Id 0 -PercentComplete (CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+	{
+		$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+		Write-Host "<PROGRESS>$progress%</PROGRESS>"
+		Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Creating local user..." -Id 0 -PercentComplete $progress
 		$currentTask = $currentTask + 1
 
 		Write-Host "[*] $SqlSvcUsername does not exist. Creating user..." -ForegroundColor Cyan
@@ -368,15 +383,15 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 	
 	# Check SQL sysadmin username validity
 	# Create array with 
-	Write-Progress -Activity "Checking SQL SysAdmin accounts validity..." -CurrentOperation "Checking SQL Sysadmin accounts validity..." -Id 0 -PercentComplete (CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+	Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking SQL Sysadmin accounts validity..." -Id 0 -PercentComplete $progress
 	$currentTask = $currentTask + 1
 
 	$currentAdminCheck = 1
-	$sqlSysAdminAccountsCount = $SqlSysAdminAccounts.Length
-
+	$totalSqlSysAdminAccountsCheck = $SqlSysAdminAccounts.Length
+	$sqlAdminAccountCheckProgress = CalculateProgressPercentage -CurrentTask $currentAdminCheck -TotalTasks $totalSqlSysAdminAccountsCheck
 	$sqlSysAdminAccountsFormattedArray = foreach ($sqlAdmin in $SqlSysAdminAccounts)
 	{
-		Write-Progress -Activity "Checking $sqlAdmin validity..." -Id 1 -ParentId 0 -PercentComplete (CalculateProgressPercentage -CurrentTask $currentAdminCheck -TotalTasks $sqlSysAdminAccountsCount)
+		Write-Progress -Activity "Checking $sqlAdmin validity..." -Id 1 -ParentId 0 -PercentComplete $sqlAdminAccountCheckProgress
 		$currentAdminCheck = $currentAdminCheck + 1
 
 		$sqlAdminContainsDomainPrefix = CheckForDomainPrefix -Username $SqlSvcUsername
@@ -415,7 +430,7 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 		}
 	}
 
-	Write-Progress -Id 1 -ParentId 0 -Completed
+	Write-Progress "Checking $sqlAdmin validity..." -Id 1 -ParentId 0 -Completed
 
 	# Create a space separated string of usernames to be included in the '.ini' config file
 	$sqlSysAdminAccountsFormattedString = $sqlSysAdminAccountsFormattedArray -join ' '
@@ -424,7 +439,9 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 	$sqlSvcAccount = $sqlSvcUsernameWithoutPrefix
 } else
 {
-	Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking SQL Service account username validity..." -Id 0 -PercentComplete (CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+	$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+	Write-Host "<PROGRESS>$progress%</PROGRESS>"
+	Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking SQL Service account username validity..." -Id 0 -PercentComplete $progress
 	$currentTask = $currentTask + 1
 
 	$domainInfo = CheckDomainValidityAndGetDomainInfo -Username $SqlSvcUsername -FQDN $FQDN
@@ -440,7 +457,9 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 	
 	$domainPrefix, $sqlSvcUsernameWithoutDomainPrefix = SplitPrefixFromUsername -Username $sqlSvcUsernameWithDomainPrefix
 	
-	Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking if domain user account exists..." -Id 0 -PercentComplete (CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+	$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+	Write-Host "<PROGRESS>$progress%</PROGRESS>"
+	Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking if domain user account exists..." -Id 0 -PercentComplete $progress
 	$currentTask = $currentTask + 1
 
 	try
@@ -448,7 +467,9 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 		Get-ADUser -Identity $sqlSvcUsernameWithoutDomainPrefix
 	} catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException]
 	{
-		Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Creating SQL Service domain account..." -Id 0 -PercentComplete (CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+		$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+		Write-Host "<PROGRESS>$progress%</PROGRESS>"
+		Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Creating SQL Service domain account..." -Id 0 -PercentComplete $progress
 		$currentTask = $currentTask + 1
 
 		Write-Host "[*] $SqlSvcUsername does not exist. Creating user..." -ForegroundColor Cyan
@@ -480,15 +501,15 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 		exit 1
 	}
 
-	Write-Progress -Activity "Checking SQL SysAdmin accounts validity..." -CurrentOperation "Checking SQL Sysadmin accounts validity..." Id 0 -PercentComplete (CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+	Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking SQL Sysadmin accounts validity..." Id 0 -PercentComplete $progress
 	$currentTask = $currentTask + 1
 	
 	$currentAdminCheck = 0
-	$sqlSysAdminAccountsCount = $SqlSysAdminAccounts.Length
-
+	$totalSqlSysAdminAccountsCheck = $SqlSysAdminAccounts.Length
+	$sqlAdminAccountCheckProgress = CalculateProgressPercentage -CurrentTask $currentAdminCheck -TotalTasks $totalSqlSysAdminAccountsCheck
 	$sqlSysAdminAccountsFormattedArray = foreach ($sqlAdmin in $SqlSysAdminAccounts)
 	{
-		Write-Progress -Activity "Checking sysadmin $sqlAdmin validity..." -Id 1 -ParentId 0 -PercentComplete (CalculateProgressPercentage -CurrentTask $currentAdminCheck -TotalTasks $sqlSysAdminAccountsCount)
+		Write-Progress -Activity "Checking sysadmin $sqlAdmin validity..." -Id 1 -ParentId 0 -PercentComplete $sqlAdminAccountCheckProgress
 		$currentAdminCheck = $currentAdminCheck + 1
 
 		$domainInfo = CheckDomainValidityAndGetDomainInfo -Username $sqlAdmin -FQDN $FQDN
@@ -517,7 +538,7 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 		}
 	}
 	
-	Write-Progress -Id 1 -ParentId 0 -Completed
+	Write-Progress "Checking sysadmin $sqlAdmin validity..." -Id 1 -ParentId 0 -Completed
 
 	# Create a space separated string of usernames to be included in the '.ini' config file
 	$sqlSysAdminAccountsFormattedString = $sqlSysAdminAccountsFormattedArray -join ' '
@@ -526,14 +547,18 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 	$sqlSvcAccount = $sqlSvcUsernameWithDomainPrefix
 }
 
-Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Downloading SQL Server Installer..." -Id 0 -PercentComplete (CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Downloading SQL Server Installer..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 # Download SQL Server Installer
 Write-Host "[*] Downloading SQL Server Installer into $sqlServerSetupPath..." -ForegroundColor Cyan
 Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?linkid=2216019&culture=en-us" -OutFile $sqlServerSetupPath -UseBasicParsing
 
-Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Downloading SQLEXPR_x64_ENU.exe..." -Id 0 -PercentComplete (CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Downloading SQLEXPR_x64_ENU.exe..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 # Download SQLEXPR_x64_ENU.exe file
@@ -541,7 +566,9 @@ Write-Host "[*] Downloading SQLEXPR_x64_ENU.exe..." -ForegroundColor Cyan
 Start-Process -Wait -FilePath $sqlServerExtractorPath -ArgumentList "/QUIET /ACTION=Download /MEDIATYPE=Core /MEDIAPATH=$tempPath"
 Write-Host "[*] Downloaded SQLEXPR_x64_ENU.exe." -ForegroundColor Cyan
 
-Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Extracting setup files..." -Id 0 -PercentComplete (CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Extracting setup files..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 # Extract setup files
@@ -549,7 +576,9 @@ Write-Host "[*] Extracting setup files into $sqlServerSetupFilesPath..." -Foregr
 Start-Process -Wait -FilePath $sqlServerExprEnuSetupPath -ArgumentList "/q /x:$sqlServerSetupFilesPath"
 Write-Host "[*] Extracted setup files into $sqlServerSetupFilesPath." -ForegroundColor Cyan
 
-Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Generating configuration file..." -Id 0 -PercentComplete (CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Generating configuration file..." -Id 0 -PercentComplete $progress
 $currentTask = $currentTask + 1
 
 # Generate configuration '.ini' file
@@ -584,18 +613,17 @@ $iniContent | Out-File -FilePath $sqlServerConfigFilePath
 
 Write-Host "[*] Configuration file generated." -ForegroundColor Cyan
 
-Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Installing SQL Server Express..." -Id 0 -PercentComplete (CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
-$currentTask = $currentTask + 1
-
 # Install SQL Server Express using configuration file
+$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
+Write-Host "<PROGRESS>$progress%</PROGRESS>"
+Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Installing SQL Server Express..." -Id 0 -PercentComplete $progress
+$currentTask = $currentTask + 1 # Not needed but kept to count number of total tasks
+
 Write-Host "[*] Installing SQL Server Express..." -ForegroundColor Cyan
-
 Start-Process -Wait -FilePath $sqlServerSetupPath -ArgumentList "/IACCEPTSQLSERVERLICENSETERMS /ConfigurationFile=$sqlServerConfigFilePath"
-
 Write-Host "[*] SQL Server installed." -ForegroundColor Cyan
 
-Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Cleaning up extra files..." -Id 0 -PercentComplete (CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks)
-$currentTask = $currentTask + 1
+Write-Progress -Activity "SQL Server Express Installation" -Id 0 -Completed
 
 CleanUp -RemoveExtraFiles
 
