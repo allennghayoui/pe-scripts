@@ -58,6 +58,12 @@ function ShowProgress
 
 ######################################## Variable Declarations ########################################
 
+# Progress
+$ProgressState = @{
+	CurrentTask = 1
+	TotalTasks = 4
+}
+
 $domainMode = "WinThreshold"
 $domainPart = $FQDN -replace '^[^.]+\.',''
 $domainNetbiosName = $domainPart.Split('.')[0]
