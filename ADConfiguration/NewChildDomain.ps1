@@ -22,10 +22,11 @@ function GetNICForParentDC
 	)
 
 	# Get all active NICs
-	$ActiveNICs = Get-NetAdapter | Where-Object { $_.Status -eq "Up" }
+	$activeNICs = Get-NetAdapter | Where-Object { $_.Status -eq "Up" }
 
-	$NICForParentDC = $null
-	foreach ($nic in $ActiveNICs)
+	$selectedNICAlias = $null
+	$selectedNICLocalIP = $null
+	foreach ($nic in $activeNICs)
 	{
 		$IPAddresses = Get-NetIPAddress -InterfaceIndex $nic.ifIndex -AddressFamily IPv4 | Select-Object -ExpandProperty IPAddress
 
@@ -36,8 +37,8 @@ function GetNICForParentDC
 				$result = Test-NetConnection -ComputerName $ParentDCIP -Port 53 -WarningAction SilentlyContinue
 				if ($result.TcpTestSucceeded -or $result.PingSucceeded)
 				{
-					$NICAlias = $nic.Name
-					$NICLocalIP = $nic.IP
+					$selectedNICAlias = $nic.Name
+					$selectedNICLocalIP = $nic.IP
 					break
 				}
 			} catch
@@ -45,23 +46,23 @@ function GetNICForParentDC
 				continue
 			}
 		}
-		if ($NICForParentDC)
+		if ($selectedNICAlias -and $selectedNICLocalIP)
 		{ 
 			break 
 		}
 	}
 
-	if (-not $NICForParentDC)
+	if ((-not $selectedNICAlias) -or (-not $selectedNICLocalIP))
 	{
 		Write-Error "[!] Failed to find NIC that can reach the Parent Domain DC at $ParentDCIP"
 		exit 1
 	}
 
-	Write-Host "[*] Selected NIC for parent DC: $NICForParentDC"
+	Write-Host "[*] Selected NIC for parent DC with alias '$selectedNICAlias' and IP '$selectedNICLocalIP'." -ForegroundColor Cyan
 
 	return [PSCustomObject]@{
-		NICAlias = $NICAlias
-		NICLocalIP = $NICLocalIP
+		NICAlias = $selectedNICAlias
+		NICLocalIP = $selectedNICLocalIP
 	}
 }
 
