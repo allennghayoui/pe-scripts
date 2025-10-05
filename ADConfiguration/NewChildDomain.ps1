@@ -38,7 +38,7 @@ function GetNICForParentDC
 				if ($result.TcpTestSucceeded -or $result.PingSucceeded)
 				{
 					$selectedNICAlias = $nic.Name
-					$selectedNICLocalIP = $nic.RemoteAddress
+					$selectedNICLocalIP = $nic.RemoteAddress.IPAddressToString
 					break
 				}
 			} catch
