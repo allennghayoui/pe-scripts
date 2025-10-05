@@ -37,8 +37,8 @@ function GetNICForParentDC
 				$result = Test-NetConnection -ComputerName $ParentDCIP -Port 53 -WarningAction SilentlyContinue
 				if ($result.TcpTestSucceeded -or $result.PingSucceeded)
 				{
-					$selectedNICAlias = $nic.Name
-					$selectedNICLocalIP = $nic.RemoteAddress.IPAddressToString
+					$selectedNICAlias = $result.InterfaceAlias
+					$selectedNICLocalIP = $result.RemoteAddress.IPAddressToString
 					break
 				}
 			} catch
@@ -113,7 +113,6 @@ $domainAdminUsername = "Administrator"
 $domainAdminPassword = "P@ssw0rd123!"
 $securePassword = ConvertTo-SecureString $domainAdminPassword -AsPlainText -Force
 $adminCred = New-Object System.Management.Automation.PSCredential($domainAdminUsername, $securePassword)
-$DSRMPasswordCred = New-Object System.Management.Automation.PSCredential($domainAdminUsername, $SecurePassword)
 
 $domainMode = "WinThreshold"
 
@@ -160,27 +159,83 @@ $NICAlias = $PARENT_REACHABLE_NIC.NICAlias
 $NICLocalIP = $PARENT_REACHABLE_NIC.NICLocalIP
 
 $POST_REBOOT_SCRIPT = @"
+function ShowProgress
+{
+	param(
+		[Parameter(Mandatory=$true)]
+		[string] \$Activity,
+		[Parameter(Mandatory=$false)]
+		[string] \$CurrentOperation,
+		[Parameter(Mandatory=$true)]
+		[int] \$Id,
+		[Parameter(Mandatory=$true)]
+		[string] \$CurrentTask,
+		[Parameter(Mandatory=$true)]
+		[string] \$TotalTasks,
+		[Parameter(Mandatory=$false)]
+		[switch] \$Completed
+	)
+
+	if (\$Completed.IsPresent)
+	{
+		Write-Progress -Activity \$Activity -Id \$Id -Completed
+	} else
+	{
+		\$percentage = (\$CurrentTask / \$TotalTasks) * 100
+		\$progress = [math]::Round(\$percentage)
+
+		Write-Host "<PROGRESS>\$progress%</PROGRESS>"
+		Write-Progress -Activity \$Activity -CurrentOperation \$CurrentOperation -Id \$Id -PercentComplete \$progress
+		\$currentTask = \$currentTask + 1
+	}
+}
+
+\$ProgressState = @{
+	\$CurrentTask = $($ProgressState.CurrentTask)
+	\$TotalTasks = $($ProgressState.TotalTasks)
+}
+
 Start-Sleep -Seconds 15
+
+ShowProgress -CurrentTask \$ProgressState.CurrentTask -TotalTasks \$ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Configurating DNS..." -Id 0
 
 Write-Host "<USER>[*] Configuring DNS settings...</USER>" -ForegroundColor Cyan
 Set-DnsClientServerAddress -InterfaceAlias $NICAlias -ServerAddresses @($NICLocalIP, $ParentDCIP)
 Write-Host "<USER>[*] Configured DNS settings.</USER>" -ForegroundColor Cyan
 
+ShowProgress -CurrentTask \$ProgressState.CurrentTask -TotalTasks \$ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Removing Registry Key For Post-Reboot Script..." -Id 0
+
 # Remove RunOnce registry entry
 try
 {
+	Write-Host "<USER>[*] Removing Registry Key for Post-Reboot Script...</USER>" -ForegroundColor Cyan
 	Remove-ItemProperty -Path '$postRebootScriptRegistryEntry' -Name '$postRebootRegistryKeyName' -ErrorAction Stop
+	Write-Host "<USER>[*] Removed Registry Key for Post-Reboot Script.</USER>" -ForegroundColor Cyan
 } catch
 {
 	Write-Error "[!] Failed to remove the RunOnce registry entry: '$RunOnceRegistryKeyName'."
 	Write-Error \$_.Exception.Message
 	exit 1
 }
+
+try
+{
+	Write-Host "<USER>[*] Removing post-reboot script file: '$postRebootScriptPath'...</USER>" -ForegroundColor Cyan
+	Remote-Item -Path $postRebootScriptPath -Force
+	Write-Host "<USER>[*] Removed post-reboot script file: '$postRebootScriptPath'.</USER>" -ForegroundColor Cyan
+} catch
+{
+	Write-Error "<USER>[!] Failed to remove post-reboot script file: '$postRebootScriptPath'.</USER>"
+	Write-Error \$_.Exception.Message
+	exit 1
+}
+
+ShowProgress -CurrentTask \$ProgressState.CurrentTask -TotalTasks \$ProgressState.TotalTasks -Activity "Create New AD Child Domain" -Completed
 "@
 
 $POST_REBOOT_SCRIPT | Out-File -FilePath $postRebootScriptPath -Encoding UTF8 -Force
 
-Write-Host "<USER>[*] Post-Reboot Script Written." -ForegroundColor Cyan
+Write-Host "<USER>[*] Post-Reboot Script Written.</USER>" -ForegroundColor Cyan
 
 ShowProgress -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Creating Registry Key For Post-Reboot Script..." -Id 0
 
@@ -200,20 +255,74 @@ try
 }
 Write-Host "[*] Created Registry Key For Post-Reboot Script..." -ForegroundColor Cyan
 
+ShowProgress -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Setting DNS to Parent DC IP..." -Id 0
+
+try
+{
+	Write-Host "<USER>[*] Setting DNS to Parent DC IP...</USER>" -ForegroundColor Cyan
+	Set-DnsClientServerAddress -InterfaceAlias $NICAlias -ServerAddresses @($ParentDCIP)
+	Write-Host "<USER>[*] Setting DNS to Parent DC IP.</USER>" -ForegroundColor Cyan
+} catch
+{
+	Write-Error "<USER>[!] Failed Setting DNS to Parent DC IP.</USER>"
+	Write-Error $_.Exception.Message
+	exit 1
+}
+
+ShowProgress -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Flushing DNS..." -Id 0
+
+try
+{
+	Write-Host "<USER>[*] Flushing DNS...</USER>" -ForegroundColor Cyan
+	ipconfig /flushdns
+	Write-Host "<USER>[*] Flushed DNS.</USER>" -ForegroundColor Cyan
+} catch
+{
+	Write-Error "<USER>[!] Failed to flush DNS.</USER>"
+	Write-Error $_.Exception.Message
+	exit 1
+}
+
+ShowProgress -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Testing DNS Connection to Parent DC..." -Id 0
+
+try
+{
+	Write-Host "<USER>[*] Testing DNS Connection to Parent DC...</USER>" -ForegroundColor Cyan
+	Test-Connection -ComputerName $ParentDCIP -Count 2 -ErrorAction Stop
+	Write-Host "<USER>[*] Successfully Tested DNS Connection to Parent DC.</USER>" -ForegroundColor Cyan
+} catch
+{
+	Write-Error "<USER>[!] Failed testing DNS connection to Parent DC.</USER>"
+	Write-Error $_.Exception.Message
+	exit 1
+}
+
 ShowProgress -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Creating Child Domain: '$childDomainFQDN'..." -Id 0
 
 Write-Host "<USER>[*] Creating Child Domain: '$childDomainFQDN'..." -ForegroundColor Cyan
-Install-ADDSDomain `
-	-Credential $adminCred `
-	-NewDomainName $NewChildDomainName `
-	-DomainNetbiosName $childDomainNetbiosName `
-	-SafeModeAdministratorPassword $DSRMPasswordCred `
-	-CreateDNSDelegation `
-	-DomainMode $domainMode `
-	-InstallDNS `
-	-NoRebootOnCompletion `
-	-Confirm:$false `
-	-Force
+try
+{
+	Install-ADDSDomain `
+		-Credential $adminCred `
+		-NewDomainName $NewChildDomainName `
+		-NewDomainNetbiosName $childDomainNetbiosName `
+		-ParentDomainName $ParentDomainName `
+		-SafeModeAdministratorPassword $securePassword `
+		-CreateDNSDelegation `
+		-DomainMode $domainMode `
+		-InstallDNS `
+		-NoRebootOnCompletion `
+		-Confirm:$false `
+		-Force
+} catch
+{
+	Wite-Error "[!] Failed to Create Child Domain: $'$childDomainFQDN'."
+	Write-Error $_.Exception.Message
+	exit 1
+}
 Write-Host "<USER>[*] Created Child Domain: '$childDomainFQDN'." -ForegroundColor Cyan
 
-ShowProgress -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -Id 0 -Completed
+ShowProgress -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Restarting machine..." -Id 0 -Completed
+
+Write-Warning "<USER>Restarting the machine for the changes to take effect...</USER>"
+Restart-Computer -Force
