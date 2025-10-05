@@ -102,7 +102,7 @@ function ShowProgress
 # Progress
 $ProgressState = @{
 	CurrentTask       = 1
-	TotalTasks        = 6
+	TotalTasks        = 14
 }
 
 # Paths
@@ -110,8 +110,8 @@ $tempPath = "$env:TEMP"
 $postRebootScriptPath = "$tempPath\PostRebootChildDomainSetup.ps1"
 $postRebootProgressStatePath = "$tempPath\PostRebootProgressState.json"
 
-$domainAdminUsername = "Administrator"
-$domainAdminPassword = "P@ssw0rd123!"
+$domainAdminUsername = "MYDOMAIN\Administrator"
+$domainAdminPassword = "P@ssw0rd"
 $securePassword = ConvertTo-SecureString $domainAdminPassword -AsPlainText -Force
 $adminCred = New-Object System.Management.Automation.PSCredential($domainAdminUsername, $securePassword)
 
