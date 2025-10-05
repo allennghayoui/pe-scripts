@@ -65,8 +65,7 @@ $ProgressState = @{
 }
 
 $domainMode = "WinThreshold"
-$domainPart = $FQDN -replace '^[^.]+\.',''
-$domainNetbiosName = $domainPart.Split('.')[0]
+$domainNetbiosName = $FQDN.Split(".")[-2]
 
 $securePassword = ConvertTo-SecureString $AdminPassword -AsPlainText -Force
 
