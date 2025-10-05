@@ -52,7 +52,7 @@ function ShowProgress
 
 		Write-Host "<PROGRESS>$progress%</PROGRESS>"
 		Write-Progress -Activity $Activity -CurrentOperation $CurrentOperation -Id $Id -PercentComplete $progress
-		$currentTask = $currentTask + 1
+		$ProgressState.CurrentTask = $ProgressState.CurrentTask + 1
 	}
 }
 
@@ -60,8 +60,8 @@ function ShowProgress
 
 # Progress
 $ProgressState = @{
-	CurrentTask = 1
-	TotalTasks = 4
+	CurrentTask  = 1
+	TotalTasks   = 4
 }
 
 $domainMode = "WinThreshold"
