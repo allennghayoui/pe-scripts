@@ -108,6 +108,7 @@ $ProgressState = @{
 # Paths
 $tempPath = "$env:TEMP"
 $postRebootScriptPath = "$tempPath\PostRebootChildDomainSetup.ps1"
+$postRebootProgressStatePath = "$tempPath\PostRebootProgressState.json"
 
 $domainAdminUsername = "Administrator"
 $domainAdminPassword = "P@ssw0rd123!"
@@ -163,47 +164,44 @@ function ShowProgress
 {
 	param(
 		[Parameter(Mandatory=$true)]
-		[string] \$Activity,
+		[string] `$Activity,
 		[Parameter(Mandatory=$false)]
-		[string] \$CurrentOperation,
+		[string] `$CurrentOperation,
 		[Parameter(Mandatory=$true)]
-		[int] \$Id,
+		[int] `$Id,
 		[Parameter(Mandatory=$true)]
-		[string] \$CurrentTask,
+		[string] `$CurrentTask,
 		[Parameter(Mandatory=$true)]
-		[string] \$TotalTasks,
+		[string] `$TotalTasks,
 		[Parameter(Mandatory=$false)]
-		[switch] \$Completed
+		[switch] `$Completed
 	)
 
-	if (\$Completed.IsPresent)
+	if (`$Completed.IsPresent)
 	{
-		Write-Progress -Activity \$Activity -Id \$Id -Completed
+		Write-Progress -Activity `$Activity -Id `$Id -Completed
 	} else
 	{
-		\$percentage = (\$CurrentTask / \$TotalTasks) * 100
-		\$progress = [math]::Round(\$percentage)
+		`$percentage = (`$CurrentTask / `$TotalTasks) * 100
+		`$progress = [math]::Round(`$percentage)
 
-		Write-Host "<PROGRESS>\$progress%</PROGRESS>"
-		Write-Progress -Activity \$Activity -CurrentOperation \$CurrentOperation -Id \$Id -PercentComplete \$progress
-		\$currentTask = \$currentTask + 1
+		Write-Host "<PROGRESS>`$progress%</PROGRESS>"
+		Write-Progress -Activity `$Activity -CurrentOperation `$CurrentOperation -Id `$Id -PercentComplete `$progress
+		`$currentTask = `$currentTask + 1
 	}
 }
 
-\$ProgressState = @{
-	\$CurrentTask = $($ProgressState.CurrentTask)
-	\$TotalTasks = $($ProgressState.TotalTasks)
-}
+`$ProgressState = Get-Content $postRebootProgressStatePath | ConvertFrom-Json
 
 Start-Sleep -Seconds 15
 
-ShowProgress -CurrentTask \$ProgressState.CurrentTask -TotalTasks \$ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Configurating DNS..." -Id 0
+ShowProgress -CurrentTask `$ProgressState.CurrentTask -TotalTasks `$ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Configurating DNS..." -Id 0
 
 Write-Host "<USER>[*] Configuring DNS settings...</USER>" -ForegroundColor Cyan
 Set-DnsClientServerAddress -InterfaceAlias $NICAlias -ServerAddresses @($NICLocalIP, $ParentDCIP)
 Write-Host "<USER>[*] Configured DNS settings.</USER>" -ForegroundColor Cyan
 
-ShowProgress -CurrentTask \$ProgressState.CurrentTask -TotalTasks \$ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Removing Registry Key For Post-Reboot Script..." -Id 0
+ShowProgress -CurrentTask `$ProgressState.CurrentTask -TotalTasks `$ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Removing Registry Key For Post-Reboot Script..." -Id 0
 
 # Remove RunOnce registry entry
 try
@@ -221,7 +219,7 @@ try
 try
 {
 	Write-Host "<USER>[*] Removing post-reboot script file: '$postRebootScriptPath'...</USER>" -ForegroundColor Cyan
-	Remote-Item -Path $postRebootScriptPath -Force
+	Remove-Item -Path $postRebootScriptPath -Force
 	Write-Host "<USER>[*] Removed post-reboot script file: '$postRebootScriptPath'.</USER>" -ForegroundColor Cyan
 } catch
 {
@@ -230,7 +228,19 @@ try
 	exit 1
 }
 
-ShowProgress -CurrentTask \$ProgressState.CurrentTask -TotalTasks \$ProgressState.TotalTasks -Activity "Create New AD Child Domain" -Completed
+try
+{
+	Write-Host "[*] Removing post-reboot progress state file: '$postRebootProgressStatePath'..." -ForegroundColor Cyan
+	Remove-Item -Path $postRebootProgressStatePath -Force
+	Write-Host "[*] Removed post-reboot progress state file: '$postRebootProgressStatePath'." -ForegroundColor Cyan
+} catch
+{
+	Write-Error "[!] Failed to remove post-reboot script file: '$postRebootProgressStatePath'."
+	Write-Error \$_.Exception.Message
+	exit 1
+}
+
+ShowProgress -CurrentTask `$ProgressState.CurrentTask -TotalTasks `$ProgressState.TotalTasks -Activity "Create New AD Child Domain" -Completed
 "@
 
 $POST_REBOOT_SCRIPT | Out-File -FilePath $postRebootScriptPath -Encoding UTF8 -Force
@@ -255,16 +265,16 @@ try
 }
 Write-Host "[*] Created Registry Key For Post-Reboot Script..." -ForegroundColor Cyan
 
-ShowProgress -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Setting DNS to Parent DC IP..." -Id 0
+ShowProgress -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Setting DNS to Parent Temporarily..." -Id 0
 
 try
 {
-	Write-Host "<USER>[*] Setting DNS to Parent DC IP...</USER>" -ForegroundColor Cyan
+	Write-Host "<USER>[*] Setting DNS to Parent Temporarily...</USER>" -ForegroundColor Cyan
 	Set-DnsClientServerAddress -InterfaceAlias $NICAlias -ServerAddresses @($ParentDCIP)
-	Write-Host "<USER>[*] Setting DNS to Parent DC IP.</USER>" -ForegroundColor Cyan
+	Write-Host "<USER>[*] Setting DNS to Parent Temporarily.</USER>" -ForegroundColor Cyan
 } catch
 {
-	Write-Error "<USER>[!] Failed Setting DNS to Parent DC IP.</USER>"
+	Write-Error "<USER>[!] Failed Setting DNS to Parent.</USER>"
 	Write-Error $_.Exception.Message
 	exit 1
 }
@@ -288,7 +298,7 @@ ShowProgress -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.
 try
 {
 	Write-Host "<USER>[*] Testing DNS Connection to Parent DC...</USER>" -ForegroundColor Cyan
-	Test-Connection -ComputerName $ParentDCIP -Count 2 -ErrorAction Stop
+	Resolve-DnsName $ParentDomainName -ErrorAction Stop
 	Write-Host "<USER>[*] Successfully Tested DNS Connection to Parent DC.</USER>" -ForegroundColor Cyan
 } catch
 {
@@ -321,6 +331,13 @@ try
 	exit 1
 }
 Write-Host "<USER>[*] Created Child Domain: '$childDomainFQDN'." -ForegroundColor Cyan
+
+
+ShowProgress -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Saving Progress State to '$postRebootProgressStatePath'..." -Id 0 -Completed
+
+Write-Host "[*] Saving Post-Reboot Progress State to '$postRebootProgressStatePath'..." -ForegroundColor Cyan
+$ProgressState | ConvertTo-Json | Out-File $postRebootProgressStatePath
+Write-Host "[*] Saved Post-Reboot Progress State to '$postRebootProgressStatePath'..." -ForegroundColor Cyan
 
 ShowProgress -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Restarting machine..." -Id 0 -Completed
 
