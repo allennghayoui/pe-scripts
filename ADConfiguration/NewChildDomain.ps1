@@ -1,15 +1,46 @@
+<#
+	.SYNOPSIS
+	Creates a new AD Child Domain.
+
+	.DESCRIPTION
+	Creates a new AD Child Domain.
+
+	.PARAMETER ParentDomainFQDN
+	Specifies the AD Parent Domain Fully Qualified Domain Name.
+
+	.PARAMETER
+	Specifies the new AD Child Domain name.
+
+	.PARAMETER
+	Specifies the Parent Domain's Domain Controller IP.
+
+	.PARAMETER DomainAdminUsername
+	Specifies username of the Domain Administrator.
+
+	.PARAMETER DomainAdminPassword
+	Specifies password of the Domain Administrator.
+
+	.PARAMETER SafeModeAdminPassword
+	Specifies the SafeModeAdministratorPassword for the new AD Child Domain.
+
+	.EXAMPLE
+	PS> .\DCNewChildDomain.ps1 -ParentDomainFQDN "mydomain.local" -NewChildDomainName "lab" -ParentDCIP "172.31.9.89" -DomainAdminUsername "MYDOMAIN\Administrator" -DomainAdminPassword "P@ssw0rd" -SafeModeAdminPassword "Str0ngP@ss!"
+#>
+
+
 param (
 	[Parameter(Mandatory = $true)]
-	[string]$ParentDomainName,        # e.g., "corp.local"
-
+	[string] $ParentDomainFQDN,
 	[Parameter(Mandatory = $true)]
-	[string]$NewChildDomainName,      # e.g., "lab"
-
+	[string] $NewChildDomainName,
 	[Parameter(Mandatory = $true)]
-	[string]$ParentDCIP,              # e.g., "192.168.121.210"
-
-	[Parameter(Mandatory = $true)]
-	[string]$NewLocalAdminPassword    # e.g., "Str0ngP@ss!"
+	[string] $ParentDCIP,
+	[Parameter(Mandatory=$true)]
+	[string] $DomainAdminUsername,
+	[Parameter(Mandatory=$true)]
+	[string] $DomainAdminPassword,
+	[Parameter(Mandatory=$true)]
+	[string] $SafeModeAdminPassword
 )
 
 ######################################## Function Declarations ########################################
@@ -93,7 +124,7 @@ function ShowProgress
 
 		Write-Host "<PROGRESS>$progress%</PROGRESS>"
 		Write-Progress -Activity $Activity -CurrentOperation $CurrentOperation -Id $Id -PercentComplete $progress
-		$currentTask = $currentTask + 1
+		$PrgressState.CurrentTask = $ProgressState.CurrentTask + 1
 	}
 }
 
@@ -110,12 +141,13 @@ $tempPath = "$env:TEMP"
 $postRebootScriptPath = "$tempPath\PostRebootChildDomainSetup.ps1"
 $postRebootProgressStatePath = "$tempPath\PostRebootProgressState.json"
 
-$domainAdminUsername = "MYDOMAIN\Administrator"
-$domainAdminPassword = "P@ssw0rd"
-$securePassword = ConvertTo-SecureString $domainAdminPassword -AsPlainText -Force
-$adminCred = New-Object System.Management.Automation.PSCredential($domainAdminUsername, $securePassword)
+$DomainAdminUsername = "MYDOMAIN\Administrator"
+$DomainAdminPassword = "P@ssw0rd"
+$secureSafeModeAdminPassword = ConvertTo-SecureString $SafeModeAdminPassword -AsPlainText -Force
+$secureDomainAdminPassword = ConvertTo-SecureString $DomainAdminPassword -AsPlainText -Force
+$domainAdminCreds = New-Object System.Management.Automation.PSCredential($DomainAdminUsername, $secureDomainAdminPassword)
 
-$domainMode = "WinThreshold"
+$domainType = "ChildDomain"
 
 $postRebootScriptRegistryEntry = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce"
 $postRebootRegistryKeyName = "PostRebootChildDomainSetup"
@@ -138,10 +170,10 @@ Import-Module ADDSDeployment
 ShowProgress -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Validating Child Domain Name..." -Id 0
 
 Write-Host "<USER>[*] Validating Child Domain name...</USER>" -ForegroundColor Cyan
-if ($NewChildDomainName -like "*.$ParentDomainName")
+if ($NewChildDomainName -like "*.$ParentDomainFQDN")
 {
 	Write-Warning "<USER>[!] Provided Child Domain name '$NewChildDomainName' contains the parent domain. Trimming to short name...</USER>"
-	$NewChildDomainName = $NewChildDomainName -replace "\.$ParentDomainName$", ""
+	$NewChildDomainName = $NewChildDomainName -replace "\.$ParentDomainFQDN$", ""
 }
 if ($NewChildDomainName -match "[^a-zA-Z0-9-]")
 {
@@ -149,8 +181,7 @@ if ($NewChildDomainName -match "[^a-zA-Z0-9-]")
 	exit 1
 }
 
-$childDomainFQDN = "$NewChildDomainName.$ParentDomainName"
-$childDomainNetbiosName = $NewChildDomainName.ToUpper()
+$childDomainFQDN = "$NewChildDomainName.$ParentDomainFQDN"
 
 ShowProgress -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Writing Post-Reboot Script..." -Id 0
 
@@ -298,7 +329,7 @@ ShowProgress -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.
 try
 {
 	Write-Host "<USER>[*] Testing DNS Connection to Parent DC...</USER>" -ForegroundColor Cyan
-	Resolve-DnsName $ParentDomainName -ErrorAction Stop
+	Resolve-DnsName $ParentDomainFQDN -ErrorAction Stop
 	Write-Host "<USER>[*] Successfully Tested DNS Connection to Parent DC.</USER>" -ForegroundColor Cyan
 } catch
 {
@@ -313,16 +344,14 @@ Write-Host "<USER>[*] Creating Child Domain: '$childDomainFQDN'..." -ForegroundC
 try
 {
 	Install-ADDSDomain `
-		-Credential $adminCred `
+		-Credential $domainAdminCreds `
 		-NewDomainName $NewChildDomainName `
-		-NewDomainNetbiosName $childDomainNetbiosName `
-		-ParentDomainName $ParentDomainName `
-		-SafeModeAdministratorPassword $securePassword `
+		-ParentDomainFQDN $ParentDomainFQDN `
+		-SafeModeAdministratorPassword $secureSafeModeAdminPassword `
+		-DomainType $domainType `
 		-CreateDNSDelegation `
-		-DomainMode $domainMode `
 		-InstallDNS `
 		-NoRebootOnCompletion `
-		-Confirm:$false `
 		-Force
 } catch
 {
