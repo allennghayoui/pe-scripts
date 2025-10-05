@@ -112,4 +112,4 @@ Start-Sleep -Seconds 5
 
 ShowProgress -Id 0 -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -Completed
 
-Restart-Computer -Seconds 5
+Restart-Computer -Force
