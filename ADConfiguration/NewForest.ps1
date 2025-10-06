@@ -8,18 +8,18 @@
 	.PARAMETER FQDN
 	Specifies the Fully Qualified Domain Name of the new domain.
 
-	.PARAMETER SafeModeAdminPassword
+	.PARAMETER AdminPassword
 	Specifies the Safe Mode Administrator Password.
 
 	.EXAMPLE
-	PS> .\DCNewForest.ps1 -FQDN "mydomain.local" -SafeModeAdminPassword "P@ssw0rd"
+	PS> .\DCNewForest.ps1 -FQDN "mydomain.local" -AdminPassword "P@ssw0rd"
 #>
 
 param(
 	[Parameter(Mandatory=$true)]
 	[string] $FQDN,
 	[Parameter(Mandatory=$true)]
-	[string] $SafeModeAdminPassword
+	[string] $AdminPassword
 )
 
 
@@ -61,13 +61,13 @@ function ShowProgress
 # Progress
 $ProgressState = @{
 	CurrentTask  = 1
-	TotalTasks   = 4
+	TotalTasks   = 5
 }
 
 $domainMode = "WinThreshold"
 $domainNetbiosName = $FQDN.Split(".")[-2]
 
-$securePassword = ConvertTo-SecureString $SafeModeAdminPassword -AsPlainText -Force
+$securePassword = ConvertTo-SecureString $AdminPassword -AsPlainText -Force
 
 ######################################## Script Start ########################################
 
@@ -82,6 +82,12 @@ if (-not ($ADDSDeploymentModuleInstalled))
 	Write-Host "<USER>[*] Installed ADDSDeployment PowerShell module.</USER>" -ForegroundColor Cyan
 }
 Import-Module -Name ADDSDeployment
+
+ShowProgress -Id 0 -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Changing Administrator Password..."
+
+Write-Host "<USER>[*] Changing Administrator Password...</USER>" -ForegroundColor Cyan
+net user Administrator "$AdminPassword"
+Write-Host "<USER>[*] Changed Administrator Password.</USER>" -ForegroundColor Cyan
 
 ShowProgress -Id 0 -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Creating AD Forest..."
 
