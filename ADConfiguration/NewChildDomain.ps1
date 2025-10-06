@@ -20,11 +20,11 @@
 	.PARAMETER DomainAdminPassword
 	Specifies password of the Domain Administrator.
 
-	.PARAMETER SafeModeAdminPassword
-	Specifies the SafeModeAdministratorPassword for the new AD Child Domain.
+	.PARAMETER ChildDomainAdminPassword
+	Specifies the SafeModeAdministrator and the Local Administrator password for the new AD Child Domain.
 
 	.EXAMPLE
-	PS> .\DCNewChildDomain.ps1 -ParentDomainFQDN "mydomain.local" -NewChildDomainName "lab" -ParentDCIP "172.31.9.89" -DomainAdminUsername "MYDOMAIN\Administrator" -DomainAdminPassword "P@ssw0rd" -SafeModeAdminPassword "Str0ngP@ss!"
+	PS> .\DCNewChildDomain.ps1 -ParentDomainFQDN "mydomain.local" -NewChildDomainName "lab" -ParentDCIP "172.31.9.89" -DomainAdminUsername "MYDOMAIN\Administrator" -DomainAdminPassword "P@ssw0rd" -ChildDomainAdminPassword "Str0ngP@ss!"
 #>
 
 
@@ -40,7 +40,7 @@ param (
 	[Parameter(Mandatory=$true)]
 	[string] $DomainAdminPassword,
 	[Parameter(Mandatory=$true)]
-	[string] $SafeModeAdminPassword
+	[string] $ChildDomainAdminPassword
 )
 
 ######################################## Function Declarations ########################################
@@ -133,7 +133,7 @@ function ShowProgress
 # Progress
 $ProgressState = @{
 	CurrentTask       = 1
-	TotalTasks        = 14
+	TotalTasks        = 15
 }
 
 # Paths
@@ -141,11 +141,10 @@ $tempPath = "$env:TEMP"
 $postRebootScriptPath = "$tempPath\PostRebootChildDomainSetup.ps1"
 $postRebootProgressStatePath = "$tempPath\PostRebootProgressState.json"
 
-$DomainAdminUsername = "MYDOMAIN\Administrator"
-$DomainAdminPassword = "P@ssw0rd"
-$secureSafeModeAdminPassword = ConvertTo-SecureString $SafeModeAdminPassword -AsPlainText -Force
-$secureDomainAdminPassword = ConvertTo-SecureString $DomainAdminPassword -AsPlainText -Force
-$domainAdminCreds = New-Object System.Management.Automation.PSCredential($DomainAdminUsername, $secureDomainAdminPassword)
+# Domain Creds
+$secureParentDomainAdminPassword = ConvertTo-SecureString $DomainAdminPassword -AsPlainText -Force
+$secureChildDomainAdminPassword = ConvertTo-SecureString $ChildDomainAdminPassword -AsPlainText -Force
+$parentDomainAdminCreds = New-Object System.Management.Automation.PSCredential($DomainAdminUsername, $secureParentDomainAdminPassword)
 
 $domainType = "ChildDomain"
 
@@ -338,16 +337,30 @@ try
 	exit 1
 }
 
+ShowProgress -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Changing Child Domain Administrator Password..." -Id 0
+
+try
+{
+	Write-Host "<USER>[*] Changing Child Domain Administrator Password...</USER>" -ForegroundColor Cyan
+	net user Administrator "$ChildDomainAdminPassword"
+	Write-Host "<USER>[*] Changed Child Domain Administrator Password.</USER>" -ForegroundColor Cyan
+} catch
+{
+	Write-Error "<USER>[!] Failed to Change Child Domain Administrator Password.</USER>"
+	Write-Error $_.Exception.Message
+	exit 1
+}
+
 ShowProgress -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Creating Child Domain: '$childDomainFQDN'..." -Id 0
 
 Write-Host "<USER>[*] Creating Child Domain: '$childDomainFQDN'..." -ForegroundColor Cyan
 try
 {
 	Install-ADDSDomain `
-		-Credential $domainAdminCreds `
+		-Credential $parentDomainAdminCreds `
 		-NewDomainName $NewChildDomainName `
 		-ParentDomainFQDN $ParentDomainFQDN `
-		-SafeModeAdministratorPassword $secureSafeModeAdminPassword `
+		-SafeModeAdministratorPassword $secureChildDomainAdminPassword `
 		-DomainType $domainType `
 		-CreateDNSDelegation `
 		-InstallDNS `
