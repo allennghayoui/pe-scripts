@@ -8,10 +8,10 @@
 	.PARAMETER ParentDomainFQDN
 	Specifies the AD Parent Domain Fully Qualified Domain Name.
 
-	.PARAMETER
+	.PARAMETER NewChildDomainName
 	Specifies the new AD Child Domain name.
 
-	.PARAMETER
+	.PARAMETER ParentDCIP
 	Specifies the Parent Domain's Domain Controller IP.
 
 	.PARAMETER DomainAdminUsername
