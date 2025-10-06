@@ -359,7 +359,7 @@ try
 	Install-ADDSDomain `
 		-Credential $parentDomainAdminCreds `
 		-NewDomainName $NewChildDomainName `
-		-ParentDomainFQDN $ParentDomainFQDN `
+		-ParentDomainName $ParentDomainFQDN `
 		-SafeModeAdministratorPassword $secureChildDomainAdminPassword `
 		-DomainType $domainType `
 		-CreateDNSDelegation `
@@ -368,7 +368,7 @@ try
 		-Force
 } catch
 {
-	Wite-Error "[!] Failed to Create Child Domain: $'$childDomainFQDN'."
+	Write-Error "[!] Failed to Create Child Domain: $'$childDomainFQDN'."
 	Write-Error $_.Exception.Message
 	exit 1
 }
