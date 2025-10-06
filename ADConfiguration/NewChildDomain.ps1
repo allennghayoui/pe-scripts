@@ -97,11 +97,6 @@ function GetNICForParentDC
 	}
 }
 
-function GetNetbiosNameFromFQDN
-{
-	return $ParentDomainFQDN.Split(".")[-2]
-}
-
 function ShowProgress
 {
 	param(
@@ -147,10 +142,9 @@ $postRebootScriptPath = "$tempPath\PostRebootChildDomainSetup.ps1"
 $postRebootProgressStatePath = "$tempPath\PostRebootProgressState.json"
 
 # Domain Creds
-$parentDomainNetbiosName = GetNetbiosNameFromFQDN
 $secureParentDomainAdminPassword = ConvertTo-SecureString $DomainAdminPassword -AsPlainText -Force
 $secureChildDomainAdminPassword = ConvertTo-SecureString $ChildDomainAdminPassword -AsPlainText -Force
-$parentDomainAdminCreds = New-Object System.Management.Automation.PSCredential("$parentDomainNetbiosName\$DomainAdminUsername", $secureParentDomainAdminPassword)
+$parentDomainAdminCreds = New-Object System.Management.Automation.PSCredential("$DomainAdminUsername@$ParentDomainFQDN", $secureParentDomainAdminPassword)
 
 $domainType = "ChildDomain"
 
