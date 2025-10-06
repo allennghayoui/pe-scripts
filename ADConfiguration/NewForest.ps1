@@ -85,9 +85,17 @@ Import-Module -Name ADDSDeployment
 
 ShowProgress -Id 0 -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Changing Administrator Password..."
 
-Write-Host "<USER>[*] Changing Administrator Password...</USER>" -ForegroundColor Cyan
-net user Administrator "$AdminPassword"
-Write-Host "<USER>[*] Changed Administrator Password.</USER>" -ForegroundColor Cyan
+try
+{
+	Write-Host "<USER>[*] Changing Administrator Password...</USER>" -ForegroundColor Cyan
+	net user Administrator "$AdminPassword"
+	Write-Host "<USER>[*] Changed Administrator Password.</USER>" -ForegroundColor Cyan
+} catch
+{
+	Write-Error "<USER>[!] Failed to Change Administrator Password.</USER>"
+	Write-Error $_.Exception.Message
+	exit 1
+}
 
 ShowProgress -Id 0 -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Creating AD Forest..."
 
