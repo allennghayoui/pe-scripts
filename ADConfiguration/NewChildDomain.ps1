@@ -24,7 +24,7 @@
 	Specifies the SafeModeAdministrator and the Local Administrator password for the new AD Child Domain.
 
 	.EXAMPLE
-	PS> .\DCNewChildDomain.ps1 -ParentDomainFQDN "mydomain.local" -NewChildDomainName "lab" -ParentDCIP "172.31.9.89" -DomainAdminUsername "MYDOMAIN\Administrator" -DomainAdminPassword "P@ssw0rd" -ChildDomainAdminPassword "Str0ngP@ss!"
+	PS> .\DCNewChildDomain.ps1 -ParentDomainFQDN "mydomain.local" -NewChildDomainName "lab" -ParentDCIP "172.31.9.89" -DomainAdminUsername "Administrator" -DomainAdminPassword "P@ssw0rd" -ChildDomainAdminPassword "Str0ngP@ss!"
 #>
 
 
@@ -124,7 +124,7 @@ function ShowProgress
 
 		Write-Host "<PROGRESS>$progress%</PROGRESS>"
 		Write-Progress -Activity $Activity -CurrentOperation $CurrentOperation -Id $Id -PercentComplete $progress
-		$PrgressState.CurrentTask = $ProgressState.CurrentTask + 1
+		$ProgressState.CurrentTask = $ProgressState.CurrentTask + 1
 	}
 }
 
