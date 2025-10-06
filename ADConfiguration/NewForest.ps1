@@ -8,18 +8,18 @@
 	.PARAMETER FQDN
 	Specifies the Fully Qualified Domain Name of the new domain.
 
-	.PARAMETER AdminPassword
+	.PARAMETER SafeModeAdminPassword
 	Specifies the Safe Mode Administrator Password.
 
 	.EXAMPLE
-	PS> .\DCNewForest.ps1 -FQDN "mydomain.local" -AdminPassword "P@ssw0rd"
+	PS> .\DCNewForest.ps1 -FQDN "mydomain.local" -SafeModeAdminPassword "P@ssw0rd"
 #>
 
 param(
 	[Parameter(Mandatory=$true)]
 	[string] $FQDN,
 	[Parameter(Mandatory=$true)]
-	[string] $AdminPassword
+	[string] $SafeModeAdminPassword
 )
 
 
@@ -67,7 +67,7 @@ $ProgressState = @{
 $domainMode = "WinThreshold"
 $domainNetbiosName = $FQDN.Split(".")[-2]
 
-$securePassword = ConvertTo-SecureString $AdminPassword -AsPlainText -Force
+$securePassword = ConvertTo-SecureString $SafeModeAdminPassword -AsPlainText -Force
 
 ######################################## Script Start ########################################
 
