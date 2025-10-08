@@ -325,7 +325,7 @@ ShowProgress -Id 0 -ProgressState $ProgressState -Activity "DVWA Install and Set
 try
 {
 	Write-Host "[*] Moving '$dvwaSrcPath' to '$dvwaSitePath'..." -ForegroundColor Cyan
-	Move-Item -Path $dvwaSrcPath -Destination $dvwaSitePath -Force -ErrorAction Stop
+	Move-Item -Path "$dvwaSrcPath\*" -Destination $dvwaSitePath -Force -ErrorAction Stop
 	Write-Host "[*] Moved '$dvwaSrcPath' to '$dvwaSitePath'." -ForegroundColor Cyan
 } catch
 {
