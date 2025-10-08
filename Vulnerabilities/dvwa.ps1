@@ -307,17 +307,17 @@ if ((Test-Path $dvwaSitePath))
 	}
 }
 
-try
-{
-	Write-Host "[*] Creating Directory: '$dvwaSitePath'..." -ForegroundColor Cyan
-	New-Item -ItemType Directory -Path $dvwaSitePath -Force -ErrorAction Stop
-	Write-Host "[*] Created Directory: '$dvwaSitePath'." -ForegroundColor Cyan	
-} catch
-{
-	Write-Error "[!] Failed to create directory: '$dvwaSitePath'."
-	Write-Error $_.Exception.Message
-	exit 1
-}
+# try
+# {
+# 	Write-Host "[*] Creating Directory: '$dvwaSitePath'..." -ForegroundColor Cyan
+# 	New-Item -ItemType Directory -Path $dvwaSitePath -Force -ErrorAction Stop
+# 	Write-Host "[*] Created Directory: '$dvwaSitePath'." -ForegroundColor Cyan	
+# } catch
+# {
+# 	Write-Error "[!] Failed to create directory: '$dvwaSitePath'."
+# 	Write-Error $_.Exception.Message
+# 	exit 1
+# }
 
 ShowProgress -Id 0 -ProgressState $ProgressState -Activity "DVWA Install and Setup" -CurrentOperation "Moving DVWA files into '$dvwaSitePath'..."
 
