@@ -349,21 +349,24 @@ Write-Host "[*] Writing content of JSON files to console..." -ForegroundColor Cy
 
 $jsonResultFiles = Get-ChildItem -Path $sharphoundJsonFiles -Filter "*.json"
 $jsonResultFilesCount = $jsonResultFiles.Length
+$currentJsonResultFile = 1
 
 Write-Host "<TOTALFILES>$jsonResultFilesCount</TOTALFILES>" -ForegroundColor Cyan
 
-for ($currentJsonFile = 1; $currentJsonFile -lt $jsonResultFilesCount; $currentJsonFile++)
+foreach ($jsonFile in $jsonResultFiles)
 {
 	try
 	{
 		Write-Host "[*] Writting '$jsonFile' to console..." -ForegroundColor Cyan
 
 		$fileContent = Get-Content -Path "$sharphoundJsonFiles\$jsonFile"
-		Write-Host "<FILE $currentJsonFile/$jsonResultFilesCount>$fileContent</FILE $currentJsonFile/$jsonResultFilesCount>" -ForegroundColor Cyan
+		Write-Host "<FILE $currentJsonResultFile/$jsonResultFilesCount>$fileContent</FILE $currentJsonResultFile/$jsonResultFilesCount>" -ForegroundColor Cyan
 
 		Write-Host "[*] Written '$jsonFile' to console." -ForegroundColor Cyan
 
 		Write-Host
+
+		$currentJsonResultFile = $currentJsonResultFile + 1
 	} catch
 	{
 		Write-Error "[!] Failed to extract $result."
