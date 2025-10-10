@@ -453,14 +453,14 @@ $folders = @(
 	"C:\inetpub\wwwroot\dvwa\hackable\uploads"
 )
 
-ShowProgress -Id 0 -ProgressState $ProgressState -Activity "DVWA Install and Setup" -CurrentOperation "Granting required permissions..." -Id 0 -PercentComplete $progress
+ShowProgress -Id 0 -ProgressState $ProgressState -Activity "DVWA Install and Setup" -CurrentOperation "Granting required permissions..." -PercentComplete $progress
 
 $currentFolder = 1
 $totalFolders = $folders.Length
 foreach ($folder in $folders)
 {
-	icacls $folder /grant "IIS_IUSRS:(OI)(CI)F" /T
-	icacls $folder /grant "IUSR:(OI)(CI)(RX)" /T
+	icacls $folder /grant "IIS_IUSRS:(OI)(CI)F" /T | Out-Null
+	icacls $folder /grant "IUSR:(OI)(CI)(RX)" /T | Out-Null
 }
 
 # Create MySQL database for DVWA
