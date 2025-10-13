@@ -72,7 +72,7 @@ $securePassword = ConvertTo-SecureString $AdminPassword -AsPlainText -Force
 ######################################## Script Start ########################################
 
 # Install ADDSDeployment module
-ShowProgress -Id 0 -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Installing ADDSDeployment PowerShell module..."
+ShowProgress -Id 0 -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Forest" -CurrentOperation "Installing ADDSDeployment PowerShell module..."
 
 $ADDSDeploymentModuleInstalled = Get-Module -ListAvailable -Name ADDSDeployment
 if (-not ($ADDSDeploymentModuleInstalled))
@@ -83,7 +83,7 @@ if (-not ($ADDSDeploymentModuleInstalled))
 }
 Import-Module -Name ADDSDeployment
 
-ShowProgress -Id 0 -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Changing Administrator Password..."
+ShowProgress -Id 0 -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Forest" -CurrentOperation "Changing Administrator Password..."
 
 try
 {
@@ -97,7 +97,7 @@ try
 	exit 1
 }
 
-ShowProgress -Id 0 -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Creating AD Forest..."
+ShowProgress -Id 0 -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Forest" -CurrentOperation "Creating AD Forest..."
 
 try
 {
@@ -118,11 +118,11 @@ try
 	exit 1
 }
 
-ShowProgress -Id 0 -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Restarting in 5 seconds..."
+ShowProgress -Id 0 -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Forest" -CurrentOperation "Restarting in 5 seconds..."
 
 Write-Warning "<USER>[*] Restarting in 5 seconds...</USER>"
 Start-Sleep -Seconds 5
 
-ShowProgress -Id 0 -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -Completed
+ShowProgress -Id 0 -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Forest" -Completed
 
 Restart-Computer -Force
