@@ -83,7 +83,7 @@ $ADDSDeploymentModuleInstalled = Get-Module -ListAvailable -Name ADDSDeployment
 if (-not ($ADDSDeploymentModuleInstalled))
 {
 	Write-Host "<USER>[*] Installing ADDSDeployment PowerShell module...</USER>" -ForegroundColor Cyan
-	Install-Module -Name ADDSDeployment -Force
+	Add-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
 	Write-Host "<USER>[*] Installed ADDSDeployment PowerShell module.</USER>" -ForegroundColor Cyan
 }
 Import-Module -Name ADDSDeployment
