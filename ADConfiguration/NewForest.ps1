@@ -61,7 +61,7 @@ function ShowProgress
 # Progress
 $ProgressState = @{
 	CurrentTask  = 1
-	TotalTasks   = 5
+	TotalTasks   = 6
 }
 
 $domainMode = "WinThreshold"
@@ -70,6 +70,11 @@ $domainNetbiosName = $FQDN.Split(".")[-2]
 $securePassword = ConvertTo-SecureString $AdminPassword -AsPlainText -Force
 
 ######################################## Script Start ########################################
+
+# Install Package Provider and Set PS Repository
+ShowProgress -Id 0 -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Forest" -CurrentOperation "Installing Package Provider and Setting PS Repository..."
+Install-PackageProvider -Name NuGet -Force
+Set-PSRepository -Name "PSGallery" -InstallationPolicy Trusted
 
 # Install ADDSDeployment module
 ShowProgress -Id 0 -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Forest" -CurrentOperation "Installing ADDSDeployment PowerShell module..."
