@@ -148,7 +148,7 @@ $parentDomainAdminCreds = New-Object System.Management.Automation.PSCredential("
 
 $domainType = "ChildDomain"
 
-$postRebootScriptRegistryEntry = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce"
+$postRebootScriptRegistryPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce"
 $postRebootRegistryKeyName = "PostRebootChildDomainSetup"
 
 ######################################## Script Start ########################################
@@ -233,19 +233,7 @@ Write-Host "<USER>[*] Configured DNS settings.</USER>" -ForegroundColor Cyan
 
 ShowProgress -CurrentTask `$ProgressState.CurrentTask -TotalTasks `$ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Removing Registry Key For Post-Reboot Script..." -Id 0
 
-# Remove RunOnce registry entry
-try
-{
-	Write-Host "<USER>[*] Removing Registry Key for Post-Reboot Script...</USER>" -ForegroundColor Cyan
-	Remove-ItemProperty -Path '$postRebootScriptRegistryEntry' -Name '$postRebootRegistryKeyName' -ErrorAction Stop
-	Write-Host "<USER>[*] Removed Registry Key for Post-Reboot Script.</USER>" -ForegroundColor Cyan
-} catch
-{
-	Write-Error "[!] Failed to remove the RunOnce registry entry: '$RunOnceRegistryKeyName'."
-	Write-Error \$_.Exception.Message
-	exit 1
-}
-
+# Remove RunOnce Script Files
 try
 {
 	Write-Host "<USER>[*] Removing post-reboot script file: '$postRebootScriptPath'...</USER>" -ForegroundColor Cyan
@@ -282,7 +270,7 @@ ShowProgress -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.
 Write-Host "[*] Creating Registry Key For Post-Reboot Script..." -ForegroundColor Cyan
 try
 {
-	New-ItemProperty -Path $postRebootScriptRegistryEntry `
+	New-ItemProperty -Path $postRebootScriptRegistryPath `
 		-Name $postRebootRegistryKeyName `
 		-Value "powershell.exe -ExecutionPolicy Bypass -File `"$postRebootScriptPath`"" `
 		-PropertyType String `
