@@ -154,15 +154,15 @@ $postRebootRegistryKeyName = "PostRebootChildDomainSetup"
 ######################################## Script Start ########################################
 
 # Install ADDSDeployment module
-ShowProgress -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Installing ADDSDeployment PowerShell module..." -Id 0
+ShowProgress -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Adding AD-Domain-Services Windows Feature..." -Id 0
 
 $ADDSDeploymentModuleInstalled = Get-Module -ListAvailable -Name ADDSDeployment
-Write-Host "<USER>[*] Installing ADDSDeployment PowerShell module..." -ForegroundColor Cyan
+Write-Host "<USER>[*] Adding AD-Domain-Services Windows Feature..." -ForegroundColor Cyan
 if (-not ($ADDSDeploymentModuleInstalled))
 {
-	Install-Module -Name ADDSDeployment -Force
+	Add-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
 }
-Write-Host "<USER>[*] Installed ADDSDeployment PowerShell module." -ForegroundColor Cyan
+Write-Host "<USER>[*] Added AD-Domain-Services Windows Feature." -ForegroundColor Cyan
 Import-Module ADDSDeployment
 
 # Validate Child Domain
