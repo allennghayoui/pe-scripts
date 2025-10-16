@@ -193,17 +193,17 @@ $POST_REBOOT_SCRIPT = @"
 function ShowProgress
 {
 	param(
-		[Parameter(Mandatory=$true)]
+		[Parameter(Mandatory=`$true)]
 		[string] `$Activity,
-		[Parameter(Mandatory=$false)]
+		[Parameter(Mandatory=`$false)]
 		[string] `$CurrentOperation,
-		[Parameter(Mandatory=$true)]
+		[Parameter(Mandatory=`$true)]
 		[int] `$Id,
-		[Parameter(Mandatory=$true)]
+		[Parameter(Mandatory=`$true)]
 		[string] `$CurrentTask,
-		[Parameter(Mandatory=$true)]
+		[Parameter(Mandatory=`$true)]
 		[string] `$TotalTasks,
-		[Parameter(Mandatory=$false)]
+		[Parameter(Mandatory=`$false)]
 		[switch] `$Completed
 	)
 
@@ -228,7 +228,7 @@ Start-Sleep -Seconds 15
 ShowProgress -CurrentTask `$ProgressState.CurrentTask -TotalTasks `$ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Configurating DNS..." -Id 0
 
 Write-Host "<USER>[*] Configuring DNS settings...</USER>" -ForegroundColor Cyan
-Set-DnsClientServerAddress -InterfaceAlias $NICAlias -ServerAddresses @($NICLocalIP, $ParentDCIP)
+Set-DnsClientServerAddress -InterfaceAlias "$NICAlias" -ServerAddresses @($NICLocalIP, $ParentDCIP)
 Write-Host "<USER>[*] Configured DNS settings.</USER>" -ForegroundColor Cyan
 
 ShowProgress -CurrentTask `$ProgressState.CurrentTask -TotalTasks `$ProgressState.TotalTasks -Activity "Create New AD Child Domain" -CurrentOperation "Removing Registry Key For Post-Reboot Script..." -Id 0
@@ -258,7 +258,7 @@ try
 	exit 1
 }
 
-ShowProgress -CurrentTask `$ProgressState.CurrentTask -TotalTasks `$ProgressState.TotalTasks -Activity "Create New AD Child Domain" -Completed
+ShowProgress -Id 0 -CurrentTask `$ProgressState.CurrentTask -TotalTasks `$ProgressState.TotalTasks -Activity "Create New AD Child Domain" -Completed
 "@
 
 $POST_REBOOT_SCRIPT | Out-File -FilePath $postRebootScriptPath -Encoding UTF8 -Force
