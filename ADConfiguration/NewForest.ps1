@@ -77,15 +77,15 @@ Install-PackageProvider -Name NuGet -Force
 Set-PSRepository -Name "PSGallery" -InstallationPolicy Trusted
 
 # Install ADDSDeployment module
-ShowProgress -Id 0 -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Forest" -CurrentOperation "Installing ADDSDeployment PowerShell module..."
+ShowProgress -Id 0 -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Forest" -CurrentOperation "Adding AD-Domain-Services Windows Feature..."
 
 $ADDSDeploymentModuleInstalled = Get-Module -ListAvailable -Name ADDSDeployment
+Write-Host "<USER>[*] Adding AD-Domain-Services Windows Feature...</USER>" -ForegroundColor Cyan
 if (-not ($ADDSDeploymentModuleInstalled))
 {
-	Write-Host "<USER>[*] Installing ADDSDeployment PowerShell module...</USER>" -ForegroundColor Cyan
 	Add-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
-	Write-Host "<USER>[*] Installed ADDSDeployment PowerShell module.</USER>" -ForegroundColor Cyan
 }
+Write-Host "<USER>[*] Added AD-Domain-Services Windows Feature.</USER>" -ForegroundColor Cyan
 Import-Module -Name ADDSDeployment
 
 ShowProgress -Id 0 -CurrentTask $ProgressState.CurrentTask -TotalTasks $ProgressState.TotalTasks -Activity "Create New AD Forest" -CurrentOperation "Changing Administrator Password..."
