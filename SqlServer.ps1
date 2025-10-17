@@ -55,8 +55,6 @@ param(
 	[string] $SqlSvcStartupType = "Automatic"
 )
 
-$startTime = Get-Date
-
 ######################################## Function Declarations ########################################
 
 function CleanUp
@@ -499,10 +497,5 @@ Start-Process -Wait -FilePath $sqlServerSetupPath -ArgumentList "/IACCEPTSQLSERV
 Write-Host "[+] SQL Server installed." -ForegroundColor Cyan
 
 CleanUp -RemoveExtraFiles
-
-$endTime = Get-Date
-
-$executionTime = $endTime - $startTime
-Write-Output "Execution time: $($executionTime.ToString('mm\:ss'))"
 
 exit 0
