@@ -26,28 +26,16 @@
 	.PARAMETER SqlSvcStartupType
 	Specifies the SQL Server service startup type.
 
-	.EXAMPLE
-	PS> .\sql_server.ps1 -InstanceName "NEWSQL" -SqlSvcUsername "DOMAIN\sql_svc" -SqlSvcPassword "P@ssw0rd" -SqlSysAdminAccounts "DOMAIN\sql_svc","DOMAIN\johndoe" -SaPassword "P@ssw0rd" -FQDN "domain.local" -SqlSvcStartupType "Automatic"
-
-	.EXAMPLE
+	.EXAMPLE (includes domain name with usernames)
 	PS> .\sql_server.ps1 -InstanceName "NEWSQL" -SqlSvcUsername "DOMAIN\sql_svc" -SqlSvcPassword "P@ssw0rd" -SqlSysAdminAccounts "DOMAIN\sql_svc","DOMAIN\johndoe" -SaPassword "P@ssw0rd" -FQDN "domain.local"
 
-	.EXAMPLE
+	.EXAMPLE (does not include domain name with usernames)
 	PS> .\sql_server.ps1 -InstanceName "NEWSQL" -SqlSvcUsername "sql_svc" -SqlSvcPassword "P@ssw0rd" -SqlSysAdminAccounts "sql_svc","johndoe" -SaPassword "P@ssw0rd" -FQDN "domain.local"
 
-	.EXAMPLE
+	.EXAMPLE (setup for local accounts)
 	PS> .\sql_server.ps1 -InstanceName "NEWSQL" -SqlSvcUsername "local_sql_svc" -SqlSvcPassword "P@ssw0rd" -SqlSysAdminAccounts "local_sql_svc","local_johndoe" -SaPassword "P@ssw0rd"
 
 #>
-
-# 1. SQL Server is paid only Express edition is free
-# https://www.microsoft.com/en/sql-server/sql-server-downloads
-# Difference between editions is in the limit max 10GB DBs 1GB of memory
-# and 1 processors. No agent for task automation, backup compression,
-# log shipping, and advanced business intelligence tools.
-#
-# SQL Server Express 2022 download link
-# https://go.microsoft.com/fwlink/p/?linkid=2216019&culture=en-us
 
 param(
 	[Parameter(Mandatory=$true)]
@@ -67,21 +55,9 @@ param(
 	[string] $SqlSvcStartupType = "Automatic"
 )
 
+$startTime = Get-Date
+
 ######################################## Function Declarations ########################################
-
-function CalculateProgressPercentage
-{
-	param(
-		[Parameter(Mandatory=$false)]
-		[int] $CurrentTask,
-		[Parameter(Mandatory=$false)]
-		[int] $TotalTasks
-	)
-
-	$percentage = ($CurrentTask / $TotalTasks) * 100
-
-	return [math]::Round($percentage, 2)
-}
 
 function CleanUp
 {
@@ -99,15 +75,13 @@ function CleanUp
 		$isDomainUser = CheckForDomainPrefix -Username $RemoveUser
 		if ($isDomainUser)
 		{
-			CheckActiveDirectoryAvailabilityAndImport
-			
 			$domain, $usernameWithoutPrefix = SplitPrefixFromUsername -Username $RemoveUser
 			
 			Write-Host "[*] Removing user $RemoveUser..." -ForegroundColor Cyan
 			
 			Remove-ADUser -Identity $usernameWithoutPrefix -Confirm:$false
 			
-			Write-Host "[*] Removed user $RemoveUser." -ForegroundColor Cyan
+			Write-Host "[+] Removed user $RemoveUser." -ForegroundColor Cyan
 			
 			return
 		}
@@ -122,7 +96,7 @@ function CleanUp
 		
 		Remove-LocalUser -Name $usernameWithoutPrefix -Confirm:$false
 		
-		Write-Host "[*] Removed user $RemoveUser." -ForegroundColor Cyan
+		Write-Host "[+] Removed user $RemoveUser." -ForegroundColor Cyan
 		
 		return
 	}
@@ -133,42 +107,41 @@ function CleanUp
 		{
 			Write-Host "[*] Removing '$sqlServerExtractorPath'..." -ForegroundColor Cyan
 			Remove-Item -Path $sqlServerExtractorPath -Force
-			Write-Host "[*] Removed '$sqlServerExtractorPath'." -ForegroundColor Cyan
+			Write-Host "[+] Removed '$sqlServerExtractorPath'." -ForegroundColor Cyan
 		}
 
 		if ((Test-Path -Path $sqlServerExprEnuSetupPath))
 		{
 			Write-Host "[*] Removing '$sqlServerExprEnuSetupPath'..." -ForegroundColor Cyan
 			Remove-Item -Path $sqlServerExprEnuSetupPath -Force
-			Write-Host "[*] Removed '$sqlServerExprEnuSetupPath'." -ForegroundColor Cyan
+			Write-Host "[+] Removed '$sqlServerExprEnuSetupPath'." -ForegroundColor Cyan
 		}
 
 		if ((Test-Path -Path $sqlServerSetupFilesPath))
 		{
 			Write-Host "[*] Removing '$sqlServerSetupFilesPath'..." -ForegroundColor Cyan
 			Remove-Item -Path $sqlServerSetupFilesPath -Force -Recurse
-			Write-Host "[*] Removed '$sqlServerSetupFilesPath'." -ForegroundColor Cyan
+			Write-Host "[+] Removed '$sqlServerSetupFilesPath'." -ForegroundColor Cyan
 		}
 
 		if ((Test-Path -Path $sqlServerSetupPath))
 		{
 			Write-Host "[*] Removing '$sqlServerSetupPath'..." -ForegroundColor Cyan
 			Remove-Item -Path $sqlServerSetupPath -Force
-			Write-Host "[*] Removed '$sqlServerSetupPath'." -ForegroundColor Cyan
+			Write-Host "[+] Removed '$sqlServerSetupPath'." -ForegroundColor Cyan
 		}
 		
 		if ((Test-Path -Path $sqlServerConfigFilePath))
 		{
 			Write-Host "[*] Removing '$sqlServerConfigFilePath'..." -ForegroundColor Cyan
 			Remove-Item -Path $sqlServerConfigFilePath -Force
-			Write-Host "[*] Removed '$sqlServerConfigFilePath'." -ForegroundColor Cyan
+			Write-Host "[+] Removed '$sqlServerConfigFilePath'." -ForegroundColor Cyan
 		}
 	}
 	
 	if ((-not ($RemoveExtraFiles.IsPresent)) -and ($RemoveUser -eq ""))
 	{
-		Write-Error "[!] -RemoveUser and -RemoveExtraFiles cannot both be absent."
-		exit 1
+		Write-Host "[-] -RemoveUser and -RemoveExtraFiles cannot both be absent. Skipping file cleanup." -ForegroundColor Yellow
 	}
 	
 	if (($RemoveUser -ne "") -and (-not ($RemoveExtraFiles.IsPresent)))
@@ -246,8 +219,6 @@ function CheckDomainValidityAndGetDomainInfo
 		[string] $FQDN
 	)
 	
-	CheckActiveDirectoryAvailabilityAndImport
-	
 	$providedDomainNetBiosName, $providedUsername = SplitPrefixFromUsername -Username $Username
 	
 	try
@@ -256,48 +227,25 @@ function CheckDomainValidityAndGetDomainInfo
 		
 		if (-not ($currentDomain.DNSRoot -ieq $FQDN))
 		{
-			Write-Error "[!] Current domain FQDN '$($currentDomain.DNSRoot)' and provided FQDN '$($FQDN.ToLower())' do not match."
+			Write-Host "[-] Current domain FQDN '$($currentDomain.DNSRoot)' and provided FQDN '$($FQDN.ToLower())' do not match." -ForegroundColor Red
 			exit 1
 		}
 		
 		if (-not ($providedDomainNetBiosName -eq $currentDomain.NetBIOSName))
 		{
-			Write-Error "[!] Current domain NetBIOS name '$($currentDomain.NetBIOSName)' and provided domain NetBIOSName '$($providedDomainNetBiosName)' do not match."
+			Write-Host "[-] Current domain NetBIOS name '$($currentDomain.NetBIOSName)' and provided domain NetBIOSName '$($providedDomainNetBiosName)' do not match." -ForegroundColor Red
 			exit 1
 		}
 		
 		return $currentDomain
 	} catch
 	{
-		Write-Error "[!] Failed to get current domain NetBIOS name."
+		Write-Host "[-] Failed to get current domain NetBIOS name - $_" -ForegroundColor Red
 		exit 1
-	}
-}
-
-# Checks for the availability of the ActiveDirectory Module.
-# Imports it if not already imported.
-function CheckActiveDirectoryAvailabilityAndImport
-{
-	$isActiveDirectoryModuleAvailable = Get-Module -ListAvailable -Name ActiveDirectory -ErrorAction SilentlyContinue
-	if (-not $isActiveDirectoryModuleAvailable)
-	{
-		Write-Error "ActiveDirectory PowerShell module not found."
-		exit 1
-	}
-	
-	$isActiveDirectoryModuleImported = (Get-Module -Name ActiveDirectory).Name
-	if (-not $isActiveDirectoryModuleImported)
-	{
-		Import-Module ActiveDirectory
 	}
 }
 
 ######################################## Variable Declarations ########################################
-
-# Progress
-$totalTasks = 15
-$currentTask = 1
-$progress = $null
 
 # Paths
 $tempPath = "$env:TEMP"
@@ -312,25 +260,24 @@ $sqlSvcAccount = $SqlSvcUsername
 
 ######################################## Script Starts ########################################
 
-# Import ActiveDirectory PowerShell module
-$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
-Write-Host "<PROGRESS>$progress%</PROGRESS>"
-Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking ActiveDirectory module availability..." -Id 0 -PercentComplete $progress
-$currentTask = $currentTask + 1
+$isActiveDirectoryModuleAvailable = Get-Module -ListAvailable -Name ActiveDirectory
+if (-not $isActiveDirectoryModuleAvailable)
+{
+	Write-Host "[*] Installing RSAT-AD-PowerShell..." -ForegroundColor Cyan
 
-CheckActiveDirectoryAvailabilityAndImport
+	Install-WindowsFeature -Name RSAT-AD-PowerShell -IncludeAllSubFeatures
 
-$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
-Write-Host "<PROGRESS>$progress%</PROGRESS>"
-Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking domain prefix..." -Id 0 -PercentComplete $progress
-$currentTask = $currentTask + 1
+	Write-Host "[+] Installed RSAT-AD-PowerShell." -ForegroundColor Cyan 
+}
+Import-Module ActiveDirectory
 
-$sqlSvcContainsDomainPrefix = CheckForDomainPrefix -Username $SqlSvcUsername
+
+$sqlSvcContainsDomainPrefix = CheckForDomainPrefix -Username $sqlSvcAccount
 $isFqdnNullOrEmpty = ($null -eq $FQDN) -or ($FQDN -eq "")
 
 if ($isFqdnNullOrEmpty -and $sqlSvcContainsDomainPrefix)
 {
-	Write-Error "[!] FQDN cannot be NULL when SqlSvcUsername contains domain prefix '$SqlSvcUsername'."
+	Write-Host "[-] FQDN cannot be NULL when SqlSvcUsername contains domain prefix '$SqlSvcUsername'." -ForegroundColor Red
 	exit 1
 }
 
@@ -338,11 +285,6 @@ if ($isFqdnNullOrEmpty -and $sqlSvcContainsDomainPrefix)
 if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 {
 	$sqlSvcUsernameWithoutPrefix = $SqlSvcUsername
-
-	$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
-	Write-Host "<PROGRESS>$progress%</PROGRESS>"
-	Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking SQL Service account username validity..." -Id 0 -PercentComplete $progress
-	$currentTask = $currentTask + 1
 
 	# Check the SQL service username validity
 	if ((CheckForLocalUserPrefix -Username $SqlSvcUsername))
@@ -352,18 +294,9 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 	
 	$existingUser = Get-LocalUser -Name $sqlSvcUsernameWithoutPrefix
 
-	$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
-	Write-Host "<PROGRESS>$progress%</PROGRESS>"
-	Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking if local user account exists..." -Id 0 -PercentComplete $progress
-	$currentTask = $currentTask + 1
 
 	if (-not $existingUser)
 	{
-		$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
-		Write-Host "<PROGRESS>$progress%</PROGRESS>"
-		Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Creating local user..." -Id 0 -PercentComplete $progress
-		$currentTask = $currentTask + 1
-
 		Write-Host "[*] $SqlSvcUsername does not exist. Creating user..." -ForegroundColor Cyan
 
 		$SecurePassword = $SqlSvcPassword | ConvertTo-SecureString -AsPlainText -Force
@@ -379,33 +312,22 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 				-Description "SQL Server Service Account" `
 				-ErrorAction Stop
 			
-			Write-Host "[*] User created." -ForegroundColor Cyan
+			Write-Host "[+] User created." -ForegroundColor Cyan
 		} catch
 		{
-			Write-Error "[!] Failed to create user '$SqlSvcUsername'."
-			Write-Error $_.Exception.Message
+			Write-Host "[-] Failed to create user '$SqlSvcUsername' - $_"
 			exit 1
 		}
 	}
 	
 	# Check SQL sysadmin username validity
-	# Create array with 
-	Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking SQL Sysadmin accounts validity..." -Id 0 -PercentComplete $progress
-	$currentTask = $currentTask + 1
-
-	$currentAdminCheck = 1
-	$totalSqlSysAdminAccountsCheck = $SqlSysAdminAccounts.Length
-	$sqlAdminAccountCheckProgress = CalculateProgressPercentage -CurrentTask $currentAdminCheck -TotalTasks $totalSqlSysAdminAccountsCheck
 	$sqlSysAdminAccountsFormattedArray = foreach ($sqlAdmin in $SqlSysAdminAccounts)
 	{
-		Write-Progress -Activity "Checking $sqlAdmin validity..." -Id 1 -ParentId 0 -PercentComplete $sqlAdminAccountCheckProgress
-		$currentAdminCheck = $currentAdminCheck + 1
-
 		$sqlAdminContainsDomainPrefix = CheckForDomainPrefix -Username $SqlSvcUsername
 		
 		if ($sqlAdminContainsDomainPrefix)
 		{
-			Write-Error "[!] Username '$sqlAdmin' contains a domain prefix but '$SqlSvcUsername' does not. Installation can either be local or domain-joined."
+			Write-Host "[-] Username '$sqlAdmin' contains a domain prefix but '$SqlSvcUsername' does not. Installation can either be local or domain-joined." -ForegroundColor Red
 			
 			# Remove new local user created
 			CleanUp -RemoveUser $sqlSvcUsernameWithoutPrefix
@@ -428,7 +350,7 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 			"`"$sqlAdminWithoutPrefix`""
 		} else
 		{
-			Write-Error "[!] User '$sqlAdmin' does not exist."
+			Write-Host "[-] User '$sqlAdmin' does not exist - $_" -ForegroundColor Red
 			
 			# Remove new local user created
 			CleanUp -RemoveUser $sqlSvcUsernameWithoutPrefix
@@ -437,8 +359,6 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 		}
 	}
 
-	Write-Progress "Checking $sqlAdmin validity..." -Id 1 -ParentId 0 -Completed
-
 	# Create a space separated string of usernames to be included in the '.ini' config file
 	$sqlSysAdminAccountsFormattedString = $sqlSysAdminAccountsFormattedArray -join ' '
 	
@@ -446,11 +366,6 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 	$sqlSvcAccount = $sqlSvcUsernameWithoutPrefix
 } else
 {
-	$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
-	Write-Host "<PROGRESS>$progress%</PROGRESS>"
-	Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking SQL Service account username validity..." -Id 0 -PercentComplete $progress
-	$currentTask = $currentTask + 1
-
 	$domainInfo = CheckDomainValidityAndGetDomainInfo -Username $SqlSvcUsername -FQDN $FQDN
 	
 	$sqlSvcUsernameWithDomainPrefix = $SqlSvcUsername
@@ -464,21 +379,11 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 	
 	$domainPrefix, $sqlSvcUsernameWithoutDomainPrefix = SplitPrefixFromUsername -Username $sqlSvcUsernameWithDomainPrefix
 	
-	$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
-	Write-Host "<PROGRESS>$progress%</PROGRESS>"
-	Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking if domain user account exists..." -Id 0 -PercentComplete $progress
-	$currentTask = $currentTask + 1
-
 	try
 	{
 		Get-ADUser -Identity $sqlSvcUsernameWithoutDomainPrefix
 	} catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException]
 	{
-		$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
-		Write-Host "<PROGRESS>$progress%</PROGRESS>"
-		Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Creating SQL Service domain account..." -Id 0 -PercentComplete $progress
-		$currentTask = $currentTask + 1
-
 		Write-Host "[*] $SqlSvcUsername does not exist. Creating user..." -ForegroundColor Cyan
 
 		$SecurePassword = $SqlSvcPassword | ConvertTo-SecureString -AsPlainText -Force
@@ -495,30 +400,21 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 				-Description "SQL Server Service Account" `
 				-ErrorAction Stop
 			
-			Write-Host "[*] User created." -ForegroundColor Cyan
+			Write-Host "[+] User created." -ForegroundColor Cyan
 		} catch
 		{
-			Write-Error "[!] Failed to create user '$SqlSvcUsername'."
-			Write-Error $_.Exception.Message
+			Write-Host "[-] Failed to create user '$SqlSvcUsername' - $_" -ForegroundColor Red
 			exit 1
 		}
 	} catch
 	{
-		Write-Error $_.Exception.Message
+		Write-Host "[-] Failed to find user '$SqlSvcUsername' - $_" -ForegroundColor Red
 		exit 1
 	}
 
-	Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Checking SQL Sysadmin accounts validity..." Id 0 -PercentComplete $progress
-	$currentTask = $currentTask + 1
 	
-	$currentAdminCheck = 0
-	$totalSqlSysAdminAccountsCheck = $SqlSysAdminAccounts.Length
-	$sqlAdminAccountCheckProgress = CalculateProgressPercentage -CurrentTask $currentAdminCheck -TotalTasks $totalSqlSysAdminAccountsCheck
 	$sqlSysAdminAccountsFormattedArray = foreach ($sqlAdmin in $SqlSysAdminAccounts)
 	{
-		Write-Progress -Activity "Checking sysadmin $sqlAdmin validity..." -Id 1 -ParentId 0 -PercentComplete $sqlAdminAccountCheckProgress
-		$currentAdminCheck = $currentAdminCheck + 1
-
 		$domainInfo = CheckDomainValidityAndGetDomainInfo -Username $sqlAdmin -FQDN $FQDN
 		
 		$sqlAdminWithDomainPrefix = $sqlAdmin
@@ -536,7 +432,7 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 			"`"$sqlAdminWithDomainPrefix`""
 		} catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException]
 		{
-			Write-Error "[!] User '$sqlAdmin' does not exist."
+			Write-Host "[-] User '$sqlAdmin' does not exist - $_" -ForegroundColor Red
 			
 			# Remove new domain user created
 			CleanUp -RemoveUser $sqlSvcUsernameWithoutDomainPrefix
@@ -545,8 +441,6 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 		}
 	}
 	
-	Write-Progress "Checking sysadmin $sqlAdmin validity..." -Id 1 -ParentId 0 -Completed
-
 	# Create a space separated string of usernames to be included in the '.ini' config file
 	$sqlSysAdminAccountsFormattedString = $sqlSysAdminAccountsFormattedArray -join ' '
 	
@@ -554,42 +448,23 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 	$sqlSvcAccount = $sqlSvcUsernameWithDomainPrefix
 }
 
-$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
-Write-Host "<PROGRESS>$progress%</PROGRESS>"
-Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Downloading SQL Server Installer..." -Id 0 -PercentComplete $progress
-$currentTask = $currentTask + 1
-
 # Download SQL Server Installer
-Write-Host "[*] Downloading SQL Server Installer into $sqlServerExtractorPath..." -ForegroundColor Cyan
+Write-Host "[*] Downloading SQL Server Installer into '$sqlServerExtractorPath'..." -ForegroundColor Cyan
 Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?linkid=2216019&culture=en-us" -OutFile $sqlServerExtractorPath -UseBasicParsing
-
-$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
-Write-Host "<PROGRESS>$progress%</PROGRESS>"
-Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Downloading SQLEXPR_x64_ENU.exe..." -Id 0 -PercentComplete $progress
-$currentTask = $currentTask + 1
+Write-Host "[+] Downloaded SQL Server Installer into '$sqlServerExtractorPath'." -ForegroundColor Cyan
 
 # Download SQLEXPR_x64_ENU.exe file
-Write-Host "[*] Downloading SQLEXPR_x64_ENU.exe..." -ForegroundColor Cyan
+Write-Host "[*] Downloading 'SQLEXPR_x64_ENU.exe'..." -ForegroundColor Cyan
 Start-Process -Wait -FilePath $sqlServerExtractorPath -ArgumentList "/QUIET /ACTION=Download /MEDIATYPE=Core /MEDIAPATH=$tempPath"
-Write-Host "[*] Downloaded SQLEXPR_x64_ENU.exe." -ForegroundColor Cyan
-
-$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
-Write-Host "<PROGRESS>$progress%</PROGRESS>"
-Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Extracting setup files..." -Id 0 -PercentComplete $progress
-$currentTask = $currentTask + 1
+Write-Host "[+] Downloaded 'SQLEXPR_x64_ENU.exe'." -ForegroundColor Cyan
 
 # Extract setup files
-Write-Host "[*] Extracting setup files into $sqlServerSetupFilesPath..." -ForegroundColor Cyan
+Write-Host "[*] Extracting setup files into '$sqlServerSetupFilesPath'..." -ForegroundColor Cyan
 Start-Process -Wait -FilePath $sqlServerExprEnuSetupPath -ArgumentList "/q /x:$sqlServerSetupFilesPath"
-Write-Host "[*] Extracted setup files into $sqlServerSetupFilesPath." -ForegroundColor Cyan
-
-$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
-Write-Host "<PROGRESS>$progress%</PROGRESS>"
-Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Generating configuration file..." -Id 0 -PercentComplete $progress
-$currentTask = $currentTask + 1
+Write-Host "[+] Extracted setup files into '$sqlServerSetupFilesPath'." -ForegroundColor Cyan
 
 # Generate configuration '.ini' file
-Write-Host "[*] Generating $sqlServerConfigFilePath configuration file..." -ForegroundColor Cyan
+Write-Host "[*] Generating '$sqlServerConfigFilePath' configuration file..." -ForegroundColor Cyan
 
 $iniContent = @"
 [OPTIONS]
@@ -601,7 +476,6 @@ USEMICROSOFTUPDATE="False"
 SUPPRESSPAIDEDITIONNOTICE="False"
 UpdateSource="MU"
 SECURITYMODE="SQL"
-BROWSERSTARTUPTYPE="Disabled"
 INDICATEPROGRESS="True"
 FEATURES="SQLEngine"
 INSTANCENAME="$InstanceName"
@@ -617,21 +491,18 @@ SAPWD="$SaPassword"
 "@
 
 $iniContent | Out-File -FilePath $sqlServerConfigFilePath
-
-Write-Host "[*] Configuration file generated." -ForegroundColor Cyan
+Write-Host "[+] Generated '$sqlServerConfigFilePath' configuration file." -ForegroundColor Cyan
 
 # Install SQL Server Express using configuration file
-$progress = CalculateProgressPercentage -CurrentTask $currentTask -TotalTasks $totalTasks
-Write-Host "<PROGRESS>$progress%</PROGRESS>"
-Write-Progress -Activity "SQL Server Express Installation" -CurrentOperation "Installing SQL Server Express..." -Id 0 -PercentComplete $progress
-$currentTask = $currentTask + 1 # Not needed but kept to count number of total tasks
-
 Write-Host "[*] Installing SQL Server Express..." -ForegroundColor Cyan
 Start-Process -Wait -FilePath $sqlServerSetupPath -ArgumentList "/IACCEPTSQLSERVERLICENSETERMS /ConfigurationFile=$sqlServerConfigFilePath"
-Write-Host "[*] SQL Server installed." -ForegroundColor Cyan
-
-Write-Progress -Activity "SQL Server Express Installation" -Id 0 -Completed
+Write-Host "[+] SQL Server installed." -ForegroundColor Cyan
 
 CleanUp -RemoveExtraFiles
+
+$endTime = Get-Date
+
+$executionTime = $endTime - $startTime
+Write-Output "Execution time: $($executionTime.ToString('mm\:ss'))"
 
 exit 0
