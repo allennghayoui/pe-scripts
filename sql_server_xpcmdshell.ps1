@@ -1,12 +1,16 @@
 <#
 	.SYNOPSIS
 	Enables xp_cmdshell on SQL Server.
+	
 	.DESCRIPTION
 	Enables xp_cmdshell on the specified SQL Server instance using the 'sa' user's credentials.
+	
 	.PARAMETER InstanceName
 	Specifies the SQL Server instance name to enable xp_cmdshell on.
+	
 	.PARAMETER SaPassword
 	Specifies the 'sa' user's password to be used to enable xp_cmdshell.
+	
 	.Example
 	PS> .\SqlServerXpCmdShell.ps1 -InstanceName "SQLA" -SaPassword "Str0ngP@ss!"
 #>
