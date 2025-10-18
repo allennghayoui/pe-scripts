@@ -26,13 +26,16 @@
 	.PARAMETER SqlSvcStartupType
 	Specifies the SQL Server service startup type.
 
-	.EXAMPLE (includes domain name with usernames)
+	.EXAMPLE
+	(includes domain name with usernames)
 	PS> .\sql_server.ps1 -InstanceName "NEWSQL" -SqlSvcUsername "DOMAIN\sql_svc" -SqlSvcPassword "P@ssw0rd" -SqlSysAdminAccounts "DOMAIN\sql_svc","DOMAIN\johndoe" -SaPassword "P@ssw0rd" -FQDN "domain.local"
 
-	.EXAMPLE (does not include domain name with usernames)
+	.EXAMPLE
+	(does not include domain name with usernames)
 	PS> .\sql_server.ps1 -InstanceName "NEWSQL" -SqlSvcUsername "sql_svc" -SqlSvcPassword "P@ssw0rd" -SqlSysAdminAccounts "sql_svc","johndoe" -SaPassword "P@ssw0rd" -FQDN "domain.local"
 
-	.EXAMPLE (setup for local accounts)
+	.EXAMPLE
+	(setup for local accounts)
 	PS> .\sql_server.ps1 -InstanceName "NEWSQL" -SqlSvcUsername "local_sql_svc" -SqlSvcPassword "P@ssw0rd" -SqlSysAdminAccounts "local_sql_svc","local_johndoe" -SaPassword "P@ssw0rd"
 
 #>
