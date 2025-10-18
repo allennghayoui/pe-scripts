@@ -11,7 +11,7 @@
 	.PARAMETER SaPassword
 	Specifies the 'sa' user's password to be used to enable xp_cmdshell.
 	
-	.Example
+	.EXAMPLE
 	PS> .\SqlServerXpCmdShell.ps1 -InstanceName "SQLA" -SaPassword "Str0ngP@ss!"
 #>
 
