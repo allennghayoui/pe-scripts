@@ -4,28 +4,21 @@ param(
 )
 
 # Install and load SqlServer PowerShell module
-Write-Host "[*] Installing SqlServer PowerShell Module..." -ForegroundColor Cyan
+Write-Host "[*] Installing SqlServer PowerShell Module..."
 Install-Module -Name SqlServer
+Write-Host "[+] Installed SqlServer PowerShell Module."
 
 $isSqlServerModuleAvailable = Get-Module -ListAvailable -Name SqlServer -ErrorAction SilentlyContinue
 if (-not $isSqlServerModuleAvailable)
 {
-	Write-Error "[!] SqlServer PowerShell module not found."
+	Write-Error "[-] SqlServer PowerShell module not found."
 	exit 1
 }
-
 Import-Module SqlServer
-
-$isSqlServerModuleLoaded = (Get-Module -Name SqlServer).Name
-if (-not $isSqlServerModuleLoaded)
-{
-	Write-Error "[!] Failed to load SqlServer PowerShell module."
-	exit 1
-}
 
 # Enable xp_cmdshell on target SQL Server instance
 $tsqlEnableXpCmdShell = @"
-EXEC sp_configure 'show advance options', 1;
+EXEC sp_configure 'show advanced options', 1;
 RECONFIGURE;
 EXEC sp_configure 'xp_cmdshell', 1;
 RECONFIGURE;
@@ -33,12 +26,12 @@ RECONFIGURE;
 
 try
 {
+	Write-Host "[*] enabling xp_cmdshell on $InstanceName..."
 	Invoke-Sqlcmd -ServerInstance $InstanceName -Database "master" -Query $tsqlEnableXpCmdShell -ErrorAction Stop
-	Write-Host "[*] xp_cmdshell enabled on $InstanceName." -ForegroundColor Cyan
+	Write-Host "[+] xp_cmdshell enabled on $InstanceName."
 } catch
 {
-	Write-Error "[!] Failed to enable xp_cmdshell on $InstanceName."
-	Write-Error $_.Exception.Message
+	Write-Host "[-] Failed to enable xp_cmdshell on $InstanceName - $_" -ForegroundColor Red
 	exit 1
 }
 
