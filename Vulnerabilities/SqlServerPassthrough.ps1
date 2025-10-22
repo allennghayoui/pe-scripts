@@ -18,7 +18,7 @@
 	Specifies the hostname of the remote machine running the remote SQL Server instance.
 
 	.PARAMETER SaPassword
-	Specifies the password of the 'sa'.
+	Specifies the password of the 'sa' user.
 	
 	.PARAMETER LocalUsername
 	Specifies the local user that should have passthrough enabled.
