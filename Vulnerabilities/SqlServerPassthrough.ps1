@@ -38,7 +38,7 @@ param(
 	[string] $SaPassword,
 	[Parameter(Mandatory=$false)]
 	[string] $LocalUsername,
-	[Paramter(Mandtory=$false)]
+	[Parameter(Mandatory=$false)]
 	[switch] $MapAllLocalLogins = $false
 )
 
@@ -72,7 +72,7 @@ SELECT
 	@@SERVERNAME AS local_instance_name,
 	s.name AS link_name,
 	s.data_source AS remote_instance_name
-FROM sys.systems s
+FROM sys.servers s
 WHERE s.is_linked = 1
 	AND @@SERVERNAME = '$LocalServerInstance'
 	AND s.name = '$LinkName'
@@ -82,7 +82,7 @@ WHERE s.is_linked = 1
 # Execute query to select available links
 try
 {
-	$selectLinkQueryResult = Invoke-Sqlcmd -ServerInstance "$env:COMPUTERNAME\$LocalServerInstance" -Username "sa" -Password $SaPassword -Query $tsqlSelectLink -ErrorAction Stop
+	$selectLinkQueryResult = Invoke-Sqlcmd -ServerInstance "$env:COMPUTERNAME\$LocalServerInstance" -Username "sa" -Password $SaPassword -Query $tsqlSelectLink -TrustServerCertificate -ErrorAction Stop
 } catch
 {
 	Write-Host "[-] Failed to query available SQL Server Links - $_" -ForegroundColor Red
@@ -92,7 +92,7 @@ try
 if ($selectLinkQueryResult.MatchCount -eq 1)
 {
 	Write-Host "[+] Link '$LinkName' found for '$LocalServerInstance' and '$RemoteServerInstance'."
-} elseif ($selectLinkQueryResult.MatchCount -eq 0)
+} elseif ($null -eq $selectLinkQueryResult.MatchCount)
 {
 	Write-Host "[!] Link '$LinkName' not found for '$LocalServerInstance' and '$RemoteServerInstance'." -ForegroundColor Yellow
 	Write-Host "[*] Creating link '$LinkName' for '$LocalServerInstance' and '$RemoteServerInstance'..."
@@ -103,8 +103,8 @@ IF NOT EXISTS (SELECT 1 FROM sys.servers WHERE name = N'$LinkName')
 BEGIN
 	EXEC sp_addlinkedserver
 		@server = N'$LinkName',
-		@srvproduct = N'SQL SERVER',
-		@provider = N'SQLNCLI',
+		@provider = N'MSOLEDBSQL',
+		@srvproduct = N'',
 		@datasrc = N'$RemoteServerInstance';
 END
 
@@ -114,7 +114,7 @@ EXEC sp_serveroption N'$LinkName', 'data access', 'true';
 
 	try
 	{
-		Invoke-Sqlcmd -ServerInstance "$env:COMPUTERNAME\$LocalServerInstance" -Username "sa" -Password $SaPassword -Query $tsqlCreateLink -ErrorAction Stop
+		Invoke-Sqlcmd -ServerInstance "$env:COMPUTERNAME\$LocalServerInstance" -Username "sa" -Password $SaPassword -Query $tsqlCreateLink -TrustServerCertificate -ErrorAction Stop
 		Write-Host "[+] Created link '$LinkName' for '$LocalServerInstance' and '$RemoteServerInstance'." -ForegroundColor Cyan
 	} catch
 	{
@@ -129,7 +129,14 @@ EXEC sp_serveroption N'$LinkName', 'data access', 'true';
 }
 
 # Add Passthrough using link
-$localloginValue = $MapAllLocalLogins.IsPresent ? "NULL" : "N'$LocalUsername'"
+if ($MapAllLocalLogins.IsPresent)
+{
+	$localloginValue = "NULL"
+} else
+{
+	$localloginValue = "N'$LocalUsername'"
+}
+
 $tsqlLogin = @"
 EXEC sp_addlinkedsrvlogin
 	@rmtsrvname = N'$LinkName',
@@ -140,7 +147,7 @@ EXEC sp_addlinkedsrvlogin
 try
 {
 	Write-Host "[*] Adding Passthrough over '$LinkName' link for '$LocalServerInstance' and '$RemoteServerInstance'..."
-	Invoke-Sqlcmd -ServerInstance "$env:COMPUTERNAME\$LocalServerInstance" -Username "sa" -Password $SaPassword -Query $tsqlLogin -ErrorAction Stop
+	Invoke-Sqlcmd -ServerInstance "$env:COMPUTERNAME\$LocalServerInstance" -Username "sa" -Password $SaPassword -Query $tsqlLogin -TrustServerCertificate -ErrorAction Stop
 	Write-Host "[+] Added Passthrough over '$LinkName' link for '$LocalServerInstance' and '$RemoteServerInstance'."
 } catch
 {
