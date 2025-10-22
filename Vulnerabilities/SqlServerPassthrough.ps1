@@ -27,6 +27,8 @@
 	PS> .\SqlServerPassthrough.ps1 -LinkName "MyLink" -LocalServerInstance "SQLA" -RemoteServerInstance "SQLB" -SaPassword "P@ssw0rd" -LocalUsername "MYDOMAIN\jdoe"
 #>
 
+# TODO: Add RemoteHostName parameter
+
 param(
 	[Parameter(Mandatory=$true)]
 	[string] $LinkName,
