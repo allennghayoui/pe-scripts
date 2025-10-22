@@ -40,8 +40,6 @@
 
 #>
 
-# TODO: Add Firewall Inbound Rules for UDP port 1434 (SQL Server Browser) and TCP port 1433 (SQL Server Instance)
-
 param(
 	[Parameter(Mandatory=$true)]
 	[string] $InstanceName,
@@ -80,11 +78,11 @@ function CleanUp
 		{
 			$domain, $usernameWithoutPrefix = SplitPrefixFromUsername -Username $RemoveUser
 			
-			Write-Host "[*] Removing user $RemoveUser..." -ForegroundColor Cyan
+			Write-Host "[*] Removing user $RemoveUser..."
 			
 			Remove-ADUser -Identity $usernameWithoutPrefix -Confirm:$false
 			
-			Write-Host "[+] Removed user $RemoveUser." -ForegroundColor Cyan
+			Write-Host "[+] Removed user $RemoveUser."
 			
 			return
 		}
@@ -95,11 +93,11 @@ function CleanUp
 			$dotPrefix, $usernameWithoutPrefix = SplitPrefixFromUsername -Username $RemoveUser
 		}
 		
-		Write-Host "[*] Removing user $RemoveUser..." -ForegroundColor Cyan
+		Write-Host "[*] Removing user $RemoveUser..."
 		
 		Remove-LocalUser -Name $usernameWithoutPrefix -Confirm:$false
 		
-		Write-Host "[+] Removed user $RemoveUser." -ForegroundColor Cyan
+		Write-Host "[+] Removed user $RemoveUser."
 		
 		return
 	}
@@ -108,37 +106,37 @@ function CleanUp
 	{
 		if ((Test-Path -Path $sqlServerExtractorPath))
 		{
-			Write-Host "[*] Removing '$sqlServerExtractorPath'..." -ForegroundColor Cyan
+			Write-Host "[*] Removing '$sqlServerExtractorPath'..."
 			Remove-Item -Path $sqlServerExtractorPath -Force
-			Write-Host "[+] Removed '$sqlServerExtractorPath'." -ForegroundColor Cyan
+			Write-Host "[+] Removed '$sqlServerExtractorPath'."
 		}
 
 		if ((Test-Path -Path $sqlServerExprEnuSetupPath))
 		{
-			Write-Host "[*] Removing '$sqlServerExprEnuSetupPath'..." -ForegroundColor Cyan
+			Write-Host "[*] Removing '$sqlServerExprEnuSetupPath'..."
 			Remove-Item -Path $sqlServerExprEnuSetupPath -Force
-			Write-Host "[+] Removed '$sqlServerExprEnuSetupPath'." -ForegroundColor Cyan
+			Write-Host "[+] Removed '$sqlServerExprEnuSetupPath'."
 		}
 
 		if ((Test-Path -Path $sqlServerSetupFilesPath))
 		{
-			Write-Host "[*] Removing '$sqlServerSetupFilesPath'..." -ForegroundColor Cyan
+			Write-Host "[*] Removing '$sqlServerSetupFilesPath'..."
 			Remove-Item -Path $sqlServerSetupFilesPath -Force -Recurse
-			Write-Host "[+] Removed '$sqlServerSetupFilesPath'." -ForegroundColor Cyan
+			Write-Host "[+] Removed '$sqlServerSetupFilesPath'."
 		}
 
 		if ((Test-Path -Path $sqlServerSetupPath))
 		{
-			Write-Host "[*] Removing '$sqlServerSetupPath'..." -ForegroundColor Cyan
+			Write-Host "[*] Removing '$sqlServerSetupPath'..."
 			Remove-Item -Path $sqlServerSetupPath -Force
-			Write-Host "[+] Removed '$sqlServerSetupPath'." -ForegroundColor Cyan
+			Write-Host "[+] Removed '$sqlServerSetupPath'."
 		}
 		
 		if ((Test-Path -Path $sqlServerConfigFilePath))
 		{
-			Write-Host "[*] Removing '$sqlServerConfigFilePath'..." -ForegroundColor Cyan
+			Write-Host "[*] Removing '$sqlServerConfigFilePath'..."
 			Remove-Item -Path $sqlServerConfigFilePath -Force
-			Write-Host "[+] Removed '$sqlServerConfigFilePath'." -ForegroundColor Cyan
+			Write-Host "[+] Removed '$sqlServerConfigFilePath'."
 		}
 	}
 	
@@ -266,11 +264,11 @@ $sqlSvcAccount = $SqlSvcUsername
 $isActiveDirectoryModuleAvailable = Get-Module -ListAvailable -Name ActiveDirectory
 if (-not $isActiveDirectoryModuleAvailable)
 {
-	Write-Host "[*] Installing RSAT-AD-PowerShell..." -ForegroundColor Cyan
+	Write-Host "[*] Installing RSAT-AD-PowerShell..."
 
 	Install-WindowsFeature -Name RSAT-AD-PowerShell -IncludeAllSubFeatures
 
-	Write-Host "[+] Installed RSAT-AD-PowerShell." -ForegroundColor Cyan 
+	Write-Host "[+] Installed RSAT-AD-PowerShell." 
 }
 Import-Module ActiveDirectory
 
@@ -300,7 +298,7 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 
 	if (-not $existingUser)
 	{
-		Write-Host "[*] $SqlSvcUsername does not exist. Creating user..." -ForegroundColor Cyan
+		Write-Host "[*] $SqlSvcUsername does not exist. Creating user..."
 
 		$SecurePassword = $SqlSvcPassword | ConvertTo-SecureString -AsPlainText -Force
 		try
@@ -315,7 +313,7 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 				-Description "SQL Server Service Account" `
 				-ErrorAction Stop
 			
-			Write-Host "[+] User created." -ForegroundColor Cyan
+			Write-Host "[+] User created."
 		} catch
 		{
 			Write-Host "[-] Failed to create user '$SqlSvcUsername' - $_"
@@ -387,7 +385,7 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 		Get-ADUser -Identity $sqlSvcUsernameWithoutDomainPrefix
 	} catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException]
 	{
-		Write-Host "[*] $SqlSvcUsername does not exist. Creating user..." -ForegroundColor Cyan
+		Write-Host "[*] $SqlSvcUsername does not exist. Creating user..."
 
 		$SecurePassword = $SqlSvcPassword | ConvertTo-SecureString -AsPlainText -Force
 		try
@@ -403,7 +401,7 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 				-Description "SQL Server Service Account" `
 				-ErrorAction Stop
 			
-			Write-Host "[+] User created." -ForegroundColor Cyan
+			Write-Host "[+] User created."
 		} catch
 		{
 			Write-Host "[-] Failed to create user '$SqlSvcUsername' - $_" -ForegroundColor Red
@@ -452,22 +450,22 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 }
 
 # Download SQL Server Installer
-Write-Host "[*] Downloading SQL Server Installer into '$sqlServerExtractorPath'..." -ForegroundColor Cyan
+Write-Host "[*] Downloading SQL Server Installer into '$sqlServerExtractorPath'..."
 Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?linkid=2216019&culture=en-us" -OutFile $sqlServerExtractorPath -UseBasicParsing
-Write-Host "[+] Downloaded SQL Server Installer into '$sqlServerExtractorPath'." -ForegroundColor Cyan
+Write-Host "[+] Downloaded SQL Server Installer into '$sqlServerExtractorPath'."
 
 # Download SQLEXPR_x64_ENU.exe file
-Write-Host "[*] Downloading 'SQLEXPR_x64_ENU.exe'..." -ForegroundColor Cyan
+Write-Host "[*] Downloading 'SQLEXPR_x64_ENU.exe'..."
 Start-Process -Wait -FilePath $sqlServerExtractorPath -ArgumentList "/QUIET /ACTION=Download /MEDIATYPE=Core /MEDIAPATH=$tempPath"
-Write-Host "[+] Downloaded 'SQLEXPR_x64_ENU.exe'." -ForegroundColor Cyan
+Write-Host "[+] Downloaded 'SQLEXPR_x64_ENU.exe'."
 
 # Extract setup files
-Write-Host "[*] Extracting setup files into '$sqlServerSetupFilesPath'..." -ForegroundColor Cyan
+Write-Host "[*] Extracting setup files into '$sqlServerSetupFilesPath'..."
 Start-Process -Wait -FilePath $sqlServerExprEnuSetupPath -ArgumentList "/q /x:$sqlServerSetupFilesPath"
-Write-Host "[+] Extracted setup files into '$sqlServerSetupFilesPath'." -ForegroundColor Cyan
+Write-Host "[+] Extracted setup files into '$sqlServerSetupFilesPath'."
 
 # Generate configuration '.ini' file
-Write-Host "[*] Generating '$sqlServerConfigFilePath' configuration file..." -ForegroundColor Cyan
+Write-Host "[*] Generating '$sqlServerConfigFilePath' configuration file..."
 
 $iniContent = @"
 [OPTIONS]
@@ -494,13 +492,21 @@ SAPWD="$SaPassword"
 "@
 
 $iniContent | Out-File -FilePath $sqlServerConfigFilePath
-Write-Host "[+] Generated '$sqlServerConfigFilePath' configuration file." -ForegroundColor Cyan
+Write-Host "[+] Generated '$sqlServerConfigFilePath' configuration file."
 
 # Install SQL Server Express using configuration file
-Write-Host "[*] Installing SQL Server Express..." -ForegroundColor Cyan
+Write-Host "[*] Installing SQL Server Express..."
 Start-Process -Wait -FilePath $sqlServerSetupPath -ArgumentList "/IACCEPTSQLSERVERLICENSETERMS /ConfigurationFile=$sqlServerConfigFilePath"
-Write-Host "[+] SQL Server installed." -ForegroundColor Cyan
+Write-Host "[+] SQL Server installed."
 
+# Add firewall inbound rules
+Write-Host "[*] Adding Firewall Inbound Rules..."
+New-NetFirewallRule -DisplayName "SQL Browser UDP" -Direction Inbound -Protocol UDP -LocalPort 1434 -Action Allow
+New-NetFirewallRule -DisplayName "SQL Instance TCP" -Direction Inbound -Protocol TCP -LocalPort 1433 -Action Allow
+Write-Host "[+] Added Firewall Inbound Rules."
+
+Wirte-Host "[*] Cleaning Up: Removing Extra Files..."
 CleanUp -RemoveExtraFiles
+Wirte-Host "[+] Clean Up Compelete."
 
 exit 0
