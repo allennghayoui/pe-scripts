@@ -40,6 +40,8 @@
 
 #>
 
+# TODO: Add Firewall Inbound Rules for UDP port 1434 (SQL Server Browser) and TCP port 1433 (SQL Server Instance)
+
 param(
 	[Parameter(Mandatory=$true)]
 	[string] $InstanceName,
