@@ -298,7 +298,7 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 
 	if (-not $existingUser)
 	{
-		Write-Host "[*] $SqlSvcUsername does not exist. Creating user..."
+		Write-Host "[*] '$SqlSvcUsername' does not exist. Creating user..."
 
 		$SecurePassword = $SqlSvcPassword | ConvertTo-SecureString -AsPlainText -Force
 		try
@@ -319,6 +319,10 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 			Write-Host "[-] Failed to create user '$SqlSvcUsername' - $_"
 			exit 1
 		}
+
+		Write-Host "[*] Setting '$SqlSvcUsername' to Logon as a Service Account..."
+		ntrights -u "$env:COMPUTERNAME\$sqlSvcUsernameWithoutPrefix" +r SeServiceLogonRights
+		Write-Host "[+] Set '$SqlSvcUsername' to Logon as a Service Account."
 	}
 	
 	# Check SQL sysadmin username validity
@@ -402,6 +406,10 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 				-ErrorAction Stop
 			
 			Write-Host "[+] User created."
+
+			Write-Host "[*] Setting '$SqlSvcUsername' to Logon as a Service Account..."
+			ntrights -u $SqlSvcUsername +r SeServiceLogonRights
+			Write-Host "[+] Set '$SqlSvcUsername' to Logon as a Service Account."
 		} catch
 		{
 			Write-Host "[-] Failed to create user '$SqlSvcUsername' - $_" -ForegroundColor Red
