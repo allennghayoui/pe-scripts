@@ -14,6 +14,9 @@
 	.PARAMETER RemoteServerInstance
 	Specifies the name of the SQL Server instance on the remote machine.
 
+	.PARAMETER RemoteHostName
+	Specifies the hostname of the remote machine running the remote SQL Server instance.
+
 	.PARAMETER SaPassword
 	Specifies the password of the 'sa'.
 	
@@ -27,8 +30,6 @@
 	PS> .\SqlServerPassthrough.ps1 -LinkName "MyLink" -LocalServerInstance "SQLA" -RemoteServerInstance "SQLB" -SaPassword "P@ssw0rd" -LocalUsername "MYDOMAIN\jdoe"
 #>
 
-# TODO: Add RemoteHostName parameter
-
 param(
 	[Parameter(Mandatory=$true)]
 	[string] $LinkName,
@@ -36,6 +37,8 @@ param(
 	[string] $LocalServerInstance,
 	[Parameter(Mandatory=$true)]
 	[string] $RemoteServerInstance,
+	[Parameter(Mandatory=$true)]
+	[string] $RemoteHostName,
 	[Parameter(Mandatory=$true)]
 	[string] $SaPassword,
 	[Parameter(Mandatory=$false)]
@@ -67,7 +70,7 @@ if (-not $isSqlServerModuleLoaded)
 
 # Check if link already exists between the local instance and the remote instance
 # !!!! Executing the T-SQL below requires SQL sysadmin privileges !!!!
-Write-Host "[*] Checking if link '$LinkName' exists for '$LocalServerInstance' and '$RemoteServerInstance'..." -ForegroundColor Cyan
+Write-Host "[*] Checking if link '$LinkName' exists for '$LocalServerInstance' and '$RemoteHostName\$RemoteServerInstance'..." -ForegroundColor Cyan
 
 $tsqlSelectLink = @"
 SELECT 
@@ -78,7 +81,7 @@ FROM sys.servers s
 WHERE s.is_linked = 1
 	AND @@SERVERNAME = '$LocalServerInstance'
 	AND s.name = '$LinkName'
-	AND s.data_source = '$RemoteServerInstance';
+	AND s.data_source = '$RemoteHostName\$RemoteServerInstance';
 "@
 
 # Execute query to select available links
@@ -93,11 +96,11 @@ try
 
 if ($selectLinkQueryResult.MatchCount -eq 1)
 {
-	Write-Host "[+] Link '$LinkName' found for '$LocalServerInstance' and '$RemoteServerInstance'."
+	Write-Host "[+] Link '$LinkName' found for '$LocalServerInstance' and '$RemoteHostName\$RemoteServerInstance'."
 } elseif ($null -eq $selectLinkQueryResult.MatchCount)
 {
-	Write-Host "[!] Link '$LinkName' not found for '$LocalServerInstance' and '$RemoteServerInstance'." -ForegroundColor Yellow
-	Write-Host "[*] Creating link '$LinkName' for '$LocalServerInstance' and '$RemoteServerInstance'..."
+	Write-Host "[!] Link '$LinkName' not found for '$LocalServerInstance' and '$RemoteHostName\$RemoteServerInstance'." -ForegroundColor Yellow
+	Write-Host "[*] Creating link '$LinkName' for '$LocalServerInstance' and '$RemoteHostName\$RemoteServerInstance'..."
 	
 	# Add Link using SqlServer T-SQL
 	$tsqlCreateLink = @"
@@ -107,7 +110,7 @@ BEGIN
 		@server = N'$LinkName',
 		@provider = N'MSOLEDBSQL',
 		@srvproduct = N'',
-		@datasrc = N'$RemoteServerInstance';
+		@datasrc = N'$RemoteHostName\$RemoteServerInstance';
 END
 
 EXEC sp_serveroption N'$LinkName', 'rpc out', 'true';
@@ -117,7 +120,7 @@ EXEC sp_serveroption N'$LinkName', 'data access', 'true';
 	try
 	{
 		Invoke-Sqlcmd -ServerInstance "$env:COMPUTERNAME\$LocalServerInstance" -Username "sa" -Password $SaPassword -Query $tsqlCreateLink -TrustServerCertificate -ErrorAction Stop
-		Write-Host "[+] Created link '$LinkName' for '$LocalServerInstance' and '$RemoteServerInstance'." -ForegroundColor Cyan
+		Write-Host "[+] Created link '$LinkName' for '$LocalServerInstance' and '$RemoteHostName\$RemoteServerInstance'." -ForegroundColor Cyan
 	} catch
 	{
 		Write-Host "[-] Failed to create linked server - $_" -ForegroundColor Red
@@ -148,12 +151,12 @@ EXEC sp_addlinkedsrvlogin
 
 try
 {
-	Write-Host "[*] Adding Passthrough over '$LinkName' link for '$LocalServerInstance' and '$RemoteServerInstance'..."
+	Write-Host "[*] Adding Passthrough over '$LinkName' link for '$LocalServerInstance' and '$RemoteHostName\$RemoteServerInstance'..."
 	Invoke-Sqlcmd -ServerInstance "$env:COMPUTERNAME\$LocalServerInstance" -Username "sa" -Password $SaPassword -Query $tsqlLogin -TrustServerCertificate -ErrorAction Stop
-	Write-Host "[+] Added Passthrough over '$LinkName' link for '$LocalServerInstance' and '$RemoteServerInstance'."
+	Write-Host "[+] Added Passthrough over '$LinkName' link for '$LocalServerInstance' and '$RemoteHostName\$RemoteServerInstance'."
 } catch
 {
-	Write-Host "[-] Failed to add Passthrough over '$LinkName' link for '$LocalServerInstance' and '$RemoteServerInstance' - $_" -ForegroundColor Red
+	Write-Host "[-] Failed to add Passthrough over '$LinkName' link for '$LocalServerInstance' and '$RemoteHostName\$RemoteServerInstance' - $_" -ForegroundColor Red
 	exit 1
 }
 
