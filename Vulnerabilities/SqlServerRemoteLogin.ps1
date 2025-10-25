@@ -145,50 +145,6 @@ EXEC sp_serveroption N'$LinkName', 'data access', 'True';
 	exit 1
 }
 
-
-Write-Host "[*] Adding local login mapping to stored remote credentials..."
-
-# Check if RemoteSqlUsername exists, if not create it.
-$sqlSelectUserQuery = @"
-SELECT COUNT(*) AS UserExists
-FROM sys.server_principals
-WHERE name = N'$RemoteSqlUsername';
-"@
-
-try
-{
-	$selectUserResult = Invoke-Sqlcmd -ServerInstance "$RemoteMachineFQDN\$RemoteServerInstance" -Query $sqlSelectUserQuery -Username "sa" -Password $SaPassword -TrustServerCertificate -ErrorAction Stop
-} catch
-{
-	Write-Host "[-] Failed to check if the remote username '$RemoteSqlUsername' exists - $_" -ForegroundColor Red
-	exit 1
-}
-
-if ($selectUserResult.UserExists -eq 0)
-{
-	Write-Host "[-] Remote user '$RemoteSqlUsername' does not exist on '$RemoteServerInstance'." -ForegroundColor Yellow
-	Write-Host "[*] Creating SQL user '$RemoteSqlUsername' on '$RemoteMachineFQDN\$RemoteServerInstance'..."
-
-	$sqlCreateUserQuery = @"
-IF NOT EXISTS(
-	SELECT 1
-	FROM sys.server_principals
-	WHERE name = N'$RemoteSqlUsername'
-)
-BEGIN
-	CREATE LOGIN [$RemoteSqlUsername] WITH PASSWORD = N'$RemoteSqlPassword', CHECK_POLICY = OFF;
-END
-"@
-	try
-	{
-		Invoke-Sqlcmd -ServerInstance "$RemoteMachineFQDN\$RemoteServerInstance" -Query $sqlCreateUserQuery -Username "sa" -Password $SaPassword -TrustServerCertificate -ErrorAction Stop
-	} catch
-	{
-		Write-Host "[-] Failed to create user '$RemoteSqlUsername' on '$RemoteMachineFQDN\$RemoteServerInstance' - $_" -ForegroundColor Red
-		exit 1
-	}
-}
-
 # Map local login to remote SQL credentials
 if ($MapAllLocalLogins.IsPresent)
 {
