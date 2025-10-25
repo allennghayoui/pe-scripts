@@ -256,11 +256,22 @@ function GrantSeServiceLogonRight
 	$Right = "SeServiceLogonRight"
 	$tempInfFile = New-TemporaryFile
 
-	Write-Host "[*] Adding '$Right' for $User..."
-	secedit /export /cfg "$tempInfFile.inf" | Out-Null
-	(gc -Encoding ascii "$tempInfFile.inf") -replace '^SeServiceLogonRight .+', "`$0,$Username" | sc -Encoding ascii "$tmp.inf"
-	secedit /import /cfg "$tempInfFile.inf" /db "$tempInfFile.sdb" | Out-Null
-	secedit /configure /db "$tempInfFile.sdb" /cfg "$tempInfFile.inf" | Out-Null
+	Write-Host "[*] Adding '$Right' for '$User'..."
+
+	try
+	{
+		secedit /export /cfg "$tempInfFile.inf" | Out-Null
+		(gc -Encoding ascii "$tempInfFile.inf") -replace '^SeServiceLogonRight .+', "`$0,$Username" | sc -Encoding ascii "$tempInfFile.inf"
+		secedit /import /cfg "$tempInfFile.inf" /db "$tempInfFile.sdb" | Out-Null
+		secedit /configure /db "$tempInfFile.sdb" /cfg "$tempInfFile.inf" | Out-Null
+	} catch
+	{
+		Write-Host "[-] Failed to add '$Right' to '$User' - $_" -ForegroundColor Red
+	}
+	
+	Write-Host "[+] Added '$Right' for '$User'."
+
+	Remove-Item "$tempPath\tmp*" -Force
 }
 
 ######################################## Variable Declarations ########################################
