@@ -157,7 +157,7 @@ WHERE name = N'$RemoteSqlUsername';
 
 try
 {
-	$selectUserResult = Invoke-Sqlcmd -ServerInstance "$RemoteMachineFQDN\$RemoteServerInstance" -Query $sqlSelectUserQuery -Username "sa" -Password SaPassword -TrustServerCertificate -ErrorAction Stop
+	$selectUserResult = Invoke-Sqlcmd -ServerInstance "$RemoteMachineFQDN\$RemoteServerInstance" -Query $sqlSelectUserQuery -Username "sa" -Password $SaPassword -TrustServerCertificate -ErrorAction Stop
 } catch
 {
 	Write-Host "[-] Failed to check if the remote username '$RemoteSqlUsername' exists - $_" -ForegroundColor Red
