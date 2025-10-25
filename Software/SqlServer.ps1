@@ -246,33 +246,21 @@ function CheckDomainValidityAndGetDomainInfo
 	}
 }
 
-function MakeLogonAsService {
+function GrantSeServiceLogonRight
+{
 	param(
 		[Parameter(Mandatory=$true)]
 		[string] $User
 	)
 
-	Write-Host "[*] Installing SecurityPolicyDsc Module..."
-	
-	$isSecurityPolicyDscModuleInstalled = Get-Module -ListAvailable -Name SecurityPolicyDsc
-	if (-not $isSecurityPolicyDscModuleInstalled)
-	{
-		Install-Module -Name SecurityPolicyDsc -Force
-	}
-	Write-Host "[+] Installed SecurityDsc Module."
+	$Right = "SeServiceLogonRight"
+	$tempInfFile = New-TemporaryFile
 
-	Import-Module SecurityPolicyDsc
-
-	try
-	{
-		Write-Host "[*] Setting 'SeServiceLogonRight' for '$User'..."
-		Set-UserRight -Name $User -Right SeServiceLogonRight
-		Write-Host "[+] Set 'SeServiceLogonRight' for '$User'."
-	} catch
-	{
-		Write-Host "[-] Failed to set 'SeServiceLogonRight' for $User - $_" -ForegroundColor Red
-		exit 1
-	}
+	Write-Host "[*] Adding '$Right' for $User..."
+	secedit /export /cfg "$tempInfFile.inf" | Out-Null
+	(gc -Encoding ascii "$tempInfFile.inf") -replace '^SeServiceLogonRight .+', "`$0,$Username" | sc -Encoding ascii "$tmp.inf"
+	secedit /import /cfg "$tempInfFile.inf" /db "$tempInfFile.sdb" | Out-Null
+	secedit /configure /db "$tempInfFile.sdb" /cfg "$tempInfFile.inf" | Out-Null
 }
 
 ######################################## Variable Declarations ########################################
@@ -348,7 +336,7 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 		}
 
 		Write-Host "[*] Setting '$SqlSvcUsername' to Logon as a Service Account..."
-		MakeLogonAsService -User "$env:COMPUTERNAME\$sqlSvcUsernameWithoutPrefix"
+		GrantSeServiceLogonRight -User "$env:COMPUTERNAME\$sqlSvcUsernameWithoutPrefix"
 		Write-Host "[+] Set '$SqlSvcUsername' to Logon as a Service Account."
 	}
 	
@@ -435,7 +423,7 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 			Write-Host "[+] User created."
 
 			Write-Host "[*] Setting '$SqlSvcUsername' to Logon as a Service Account..."
-			MakeLogonAsService -User $SqlSvcUsername
+			GrantSeServiceLogonRight -User $SqlSvcUsername
 			Write-Host "[+] Set '$SqlSvcUsername' to Logon as a Service Account."
 		} catch
 		{
