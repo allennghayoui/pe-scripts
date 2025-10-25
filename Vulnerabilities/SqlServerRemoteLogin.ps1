@@ -11,6 +11,9 @@
 	.PARAMETER LocalServerInstance
 	Specifies the name of the SQL Server instance on the local machine.
 
+	.PARAMETER LocalUsername
+	Specifies the username of the local user that should use the remote credentials.
+
 	.PARAMETER RemoteServerInstance
 	Specifies the name of the SQL Server instance on the remote machine.
 
@@ -34,11 +37,11 @@
 #>
 
 param(
-	[Paramater(Mandatory=$true)]
+	[Parameter(Mandatory=$true)]
 	[string] $LinkName,
 	[Parameter(Mandatory=$true)]
 	[string] $LocalServerInstance,
-	[Parameter(Mandatory=$true)]
+	[Parameter(Mandatory=$false)]
 	[string] $LocalUsername,
 	[Parameter(Mandatory=$true)]
 	[string] $RemoteServerInstance,
