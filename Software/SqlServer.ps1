@@ -246,6 +246,35 @@ function CheckDomainValidityAndGetDomainInfo
 	}
 }
 
+function MakeLogonAsService {
+	param(
+		[Parameter(Mandatory=$true)]
+		[string] $User
+	)
+
+	Write-Host "[*] Installing SecurityPolicyDsc Module..."
+	
+	$isSecurityPolicyDscModuleInstalled = Get-Module -ListAvailable -Name SecurityPolicyDsc
+	if (-not $isSecurityPolicyDscModuleInstalled)
+	{
+		Install-Module -Name SecurityPolicyDsc -Force
+	}
+	Write-Host "[+] Installed SecurityDsc Module."
+
+	Import-Module SecurityPolicyDsc
+
+	try
+	{
+		Write-Host "[*] Setting 'SeServiceLogonRight' for '$User'..."
+		Set-UserRight -Name $User -Right SeServiceLogonRight
+		Write-Host "[+] Set 'SeServiceLogonRight' for '$User'."
+	} catch
+	{
+		Write-Host "[-] Failed to set 'SeServiceLogonRight' for $User - $_" -ForegroundColor Red
+		exit 1
+	}
+}
+
 ######################################## Variable Declarations ########################################
 
 # Paths
@@ -265,9 +294,7 @@ $isActiveDirectoryModuleAvailable = Get-Module -ListAvailable -Name ActiveDirect
 if (-not $isActiveDirectoryModuleAvailable)
 {
 	Write-Host "[*] Installing RSAT-AD-PowerShell..."
-
 	Install-WindowsFeature -Name RSAT-AD-PowerShell -IncludeAllSubFeatures
-
 	Write-Host "[+] Installed RSAT-AD-PowerShell." 
 }
 Import-Module ActiveDirectory
@@ -321,7 +348,7 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 		}
 
 		Write-Host "[*] Setting '$SqlSvcUsername' to Logon as a Service Account..."
-		ntrights -u "$env:COMPUTERNAME\$sqlSvcUsernameWithoutPrefix" +r SeServiceLogonRights
+		MakeLogonAsService -User "$env:COMPUTERNAME\$sqlSvcUsernameWithoutPrefix"
 		Write-Host "[+] Set '$SqlSvcUsername' to Logon as a Service Account."
 	}
 	
@@ -408,7 +435,7 @@ if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
 			Write-Host "[+] User created."
 
 			Write-Host "[*] Setting '$SqlSvcUsername' to Logon as a Service Account..."
-			ntrights -u $SqlSvcUsername +r SeServiceLogonRights
+			MakeLogonAsService -User $SqlSvcUsername
 			Write-Host "[+] Set '$SqlSvcUsername' to Logon as a Service Account."
 		} catch
 		{
@@ -513,8 +540,8 @@ New-NetFirewallRule -DisplayName "SQL Browser UDP" -Direction Inbound -Protocol 
 New-NetFirewallRule -DisplayName "SQL Instance TCP" -Direction Inbound -Protocol TCP -LocalPort 1433 -Action Allow
 Write-Host "[+] Added Firewall Inbound Rules."
 
-Wirte-Host "[*] Cleaning Up: Removing Extra Files..."
+Write-Host "[*] Cleaning Up: Removing Extra Files..."
 CleanUp -RemoveExtraFiles
-Wirte-Host "[+] Clean Up Compelete."
+Write-Host "[+] Clean Up Compelete."
 
 exit 0
