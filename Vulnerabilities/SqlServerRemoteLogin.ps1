@@ -151,14 +151,14 @@ if ($MapAllLocalLogins.IsPresent)
 	$localloginValue = "NULL"
 } else
 {
-	$localloginValue = "$LocalUsername"
+	$localloginValue = "N'$LocalUsername'"
 }
 
 $tsqlLocalLoginMapping = @"
 EXEC sp_addlinkedsrvlogin
 	@rmtsrvname = N'$LinkName',
 	@useself = N'False',
-	@locallogin = N'$localloginValue',
+	@locallogin = $localloginValue,
 	@rmtuser = N'$RemoteSqlUsername',
 	@rmtpassword = N'$RemoteSqlPassword';
 "@
@@ -173,5 +173,20 @@ try
 }
 
 Write-Host "[+] Added local login mapping to stored remote credentials."
+
+Write-Host "[*] Removing fallback to '@locallogin = NULL' on '$LinkName' link..."
+
+$tsqlRemoveFallbackLocalLoginMapping = "EXEC sp_droplinkedsrvlogin @rmtsrvname = N'$LinkName', @locallogin = NULL;"
+
+try
+{
+	Invoke-Sqlcmd -ServerInstance "$env:COMPUTERNAME\$LocalServerInstance" -Query $tsqlRemoveFallbackLocalLoginMapping -Username "sa" -Password $SaPassword -TrustServerCertificate -ErrorAction Stop
+} catch
+{
+	Write-Host "[-] Failed to remove fallback to '@locallogin = NULL' on '$LinkName' link." -ForegroundColor Red
+	exit 1
+}
+
+Write-Host "[+] Removed fallback to '@locallogin = NULL' on '$LinkName' link."
 
 exit 0
