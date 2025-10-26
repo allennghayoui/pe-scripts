@@ -151,7 +151,7 @@ if ($MapAllLocalLogins.IsPresent)
 	$localloginValue = "NULL"
 } else
 {
-	$localloginValue = "N'$LocalUsername'"
+	$localloginValue = "$LocalUsername"
 }
 
 $tsqlLocalLoginMapping = @"
