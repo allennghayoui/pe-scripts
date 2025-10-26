@@ -157,7 +157,7 @@ if ($MapAllLocalLogins.IsPresent)
 $tsqlLocalLoginMapping = @"
 EXEC sp_addlinkedsrvlogin
 	@rmtsrvname = N'$LinkName',
-	@useself = 'False',
+	@useself = N'False',
 	@locallogin = N'$localloginValue',
 	@rmtuser = N'$RemoteSqlUsername',
 	@rmtpassword = N'$RemoteSqlPassword';
