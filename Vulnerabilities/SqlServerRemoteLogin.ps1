@@ -158,7 +158,7 @@ $tsqlLocalLoginMapping = @"
 EXEC sp_addlinkedsrvlogin
 	@rmtsrvname = N'$LinkName',
 	@useself = 'False',
-	@locallogin = $localloginValue,
+	@locallogin = N'$localloginValue',
 	@rmtuser = N'$RemoteSqlUsername',
 	@rmtpassword = N'$RemoteSqlPassword';
 "@
