@@ -331,11 +331,7 @@ if ($isFqdnNullOrEmpty -and (-not $sqlSvcContainsDomainPrefix))
 		{
 			New-LocalUser `
 				-Name $sqlSvcUsernameWithoutPrefix `
-				-SamAccountName $sqlSvcUsernameWithoutPrefix `
-				-AccountPassword $SecurePassword `
-				-Disabled $false `
-				-AccountNeverExpires $true `
-				-PasswordNeverExpires $true `
+				-Password $SecurePassword `
 				-Description "SQL Server Service Account" `
 				-ErrorAction Stop
 			
