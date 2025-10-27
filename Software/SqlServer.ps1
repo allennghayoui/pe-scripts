@@ -43,6 +43,8 @@
 param(
 	[Parameter(Mandatory=$true)]
 	[string] $InstanceName,
+	[Parameter(Mandatory=$false)]
+	[string] $InstancePort,
 	[Parameter(Mandatory=$true)]
 	[string] $SqlSvcUsername,
 	[Parameter(Mandatory=$true)]
@@ -528,6 +530,25 @@ Write-Host "[+] Generated '$sqlServerConfigFilePath' configuration file."
 Write-Host "[*] Installing SQL Server Express..."
 Start-Process -Wait -FilePath $sqlServerSetupPath -ArgumentList "/IACCEPTSQLSERVERLICENSETERMS /ConfigurationFile=$sqlServerConfigFilePath"
 Write-Host "[+] SQL Server installed."
+
+# Change SQL Server named instance port
+Write-Host "[*] Changing SQL Server Instance Dynamic Port..."
+
+$instancePort = $InstancePort
+if ($InstancePort -eq "")
+{
+	$instancePort = 1433
+}
+
+$sqlServerInstancePortRegistryPath = "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQL*.$InstanceName\MSSQLServer\SuperSocketNetLib\Tcp\IPAll"
+$sqlServerInstancePortRegistryKey = Get-Item $sqlServerInstancePortRegistryPath
+
+Set-ItemProperty -Path $sqlServerInstancePortRegistryKey.PSPath -Name TcpDynamicPorts -Value ""
+Set-ItemProperty -Path $sqlServerInstancePortRegistryKey.PSPath -Name TcpPort -Value $instancePort
+
+Restart-Service "MSSQL`$$InstanceName" -Force
+
+Write-Host "[+] Changed SQL Server Instance Dynamic Port."
 
 # Add firewall inbound rules
 Write-Host "[*] Adding Firewall Inbound Rules..."
