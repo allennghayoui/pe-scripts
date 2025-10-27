@@ -309,7 +309,7 @@ if ($isFqdnNullOrEmpty -and $sqlSvcContainsDomainPrefix)
 }
 
 # Case: Install for local machine and local users
-if ($null -eq $FQDN -and (-not $sqlSvcContainsDomainPrefix))
+if ($isFqdnNullOrEmpty -and (-not $sqlSvcContainsDomainPrefix))
 {
 	$sqlSvcUsernameWithoutPrefix = $SqlSvcUsername
 
