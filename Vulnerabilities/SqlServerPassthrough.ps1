@@ -262,7 +262,7 @@ if (-not $isSqlSvcUsernameValid)
 
 try
 {
-	Set-ADUser -Identity "$SqlSvcUsername" -Replace @{msDS-AllowedToDelegateTo = $allowedServices}
+	Set-ADUser -Identity "$SqlSvcUsername" -Add @{'msDS-AllowedToDelegateTo' = $allowedServices}
 } catch
 {
 	Write-Host "[-] Failed to enable Constrained Delegation for '$SqlSvcUsername' - $_" -ForegroundColor Red
