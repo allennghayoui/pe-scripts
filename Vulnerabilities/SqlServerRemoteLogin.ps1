@@ -57,26 +57,36 @@ param(
 	[switch] $MapAllLocalLogins = $false
 )
 
+$sqlPSDepracatedModulePath = Get-Module -ListAvailable -Name SQLPS | Select-Object -ExpandProperty Path
+if ($sqlPSDepracatedModulePath)
+{
+	try
+	{
+		Write-Host "[*] Removing Depracated SQLPS Module From '$sqlPsDepracatedModulePath'..."
+		Remove-Item -Recurse -Force -Path (Split-Path $sqlPSDepracatedModulePath) -ErrorAction Stop
+		Write-Host "[+] Removed Depracated SQLPS Module From '$sqlPsDepracatedModulePath'."
+	} catch
+	{
+		Write-Host "[-] Failed to remove the depracated powershell module 'SQLPS' from '$sqlPSDepracatedModulePath' - $_" -ForegroundColor Red
+	}
+}
+
 # Install and load SqlServer PowerShell module
 Write-Host "[*] Installing SqlServer PowerShell Module..."
-Install-Module -Name SqlServer
-Write-Host "[+] Installed SqlServer PowerShell Module."
-
 $isSqlServerModuleAvailable = Get-Module -ListAvailable -Name SqlServer -ErrorAction SilentlyContinue
 if (-not $isSqlServerModuleAvailable)
 {
-	Write-Host "[-] SqlServer PowerShell module not found." -ForegroundColor Red
-	exit 1
+	try
+	{
+		Install-Module -Name SqlServer -Force -Confirm:$false	
+	} catch
+	{
+		Write-Host "[-] Failed to install SqlServer PowerShell module - $_" -ForegroundColor Red
+	}
 }
+Write-Host "[+] Installed SqlServer PowerShell Module."
 
 Import-Module SqlServer
-
-$isSqlServerModuleLoaded = (Get-Module -Name SqlServer).Name
-if (-not $isSqlServerModuleLoaded)
-{
-	Write-Host "[-] Failed to load SqlServer PowerShell module." -ForegroundColor Red
-	exit 1
-}
 
 # Check if link already exists between the local instance and the remote instance
 # !!!! Executing the T-SQL below requires SQL sysadmin privileges !!!!
