@@ -17,7 +17,7 @@
 	.PARAMETER RemoteServerInstance
 	Specifies the name of the SQL Server instance on the remote machine.
 
-	.PARAMETER RemoteMachineFQDN
+	.PARAMETER RemoteHostName
 	Specifies the FQDN of the remote machine running the remote SQL Server instance.
 
 	.PARAMETER RemoteSqlUsername
@@ -33,7 +33,7 @@
 	Specifies if all the local users should have remote login enabled.
 
 	.EXAMPLE
-	PS> .\SqlServerRemoteLogin.ps1 -LinkName "MyLink" -LocalServerInstance "SQLA" -LocalUsername "johndoe" -RemoteServerInstance "SQLB" -RemoteMachineFQDN "MACHINEB.MYDOMAIN.LOCAL" -RemoteSqlUsername "jimsmith" -RemoteSqlPassword "P@ssw0rd" -SaPassword "Str0ngP@ss!"
+	PS> .\SqlServerRemoteLogin.ps1 -LinkName "MyLink" -LocalServerInstance "SQLA" -LocalUsername "johndoe" -RemoteServerInstance "SQLB" -RemoteHostName "MACHINEB.MYDOMAIN.LOCAL" -RemoteSqlUsername "jimsmith" -RemoteSqlPassword "P@ssw0rd" -SaPassword "Str0ngP@ss!"
 #>
 
 param(
@@ -46,7 +46,7 @@ param(
 	[Parameter(Mandatory=$true)]
 	[string] $RemoteServerInstance,
 	[Parameter(Mandatory=$true)]
-	[string] $RemoteMachineFQDN,
+	[string] $RemoteHostName,
 	[Parameter(Mandatory=$true)]
 	[string] $RemoteSqlUsername,
 	[Parameter(Mandatory=$true)]
@@ -102,7 +102,7 @@ FROM sys.servers s
 WHERE s.is_linked = 1
 	AND @@SERVERNAME = '$LocalServerInstance'
 	AND s.name = '$LinkName'
-	AND s.data_source = '$RemoteMachineFQDN\$RemoteServerInstance';
+	AND s.data_source = '$RemoteHostName\$RemoteServerInstance';
 "@
 
 try
@@ -117,10 +117,10 @@ try
 if ($selectLinkQueryResult.MatchCount -eq 1)
 {
 	# Link already exists, add the credential mapping to it.
-	Write-Host "[+] Link '$LinkName' found for local server instance '$LocalServerInstance' and remote server instance '$RemoteMachineFQDN\$RemoteServerInstance'."
+	Write-Host "[+] Link '$LinkName' found for local server instance '$LocalServerInstance' and remote server instance '$RemoteHostName\$RemoteServerInstance'."
 } elseif ($null -eq $selectLinkQueryResult.MatchCount)
 {
-	Write-Host "[-] Link '$LinkName' not found for local server instance '$LocalServerInstance' and remote server instance '$RemoteMachineFQDN\$RemoteServerInstance'." -ForegroundColor Yellow
+	Write-Host "[-] Link '$LinkName' not found for local server instance '$LocalServerInstance' and remote server instance '$RemoteHostName\$RemoteServerInstance'." -ForegroundColor Yellow
 	Write-Host "[*] Creating link '$LinkName' now..."
 	
 	# Create new link
@@ -131,7 +131,7 @@ BEGIN
 		@server = N'$LinkName',
 		@srvproduct = N'',
 		@provider = N'MSOLEDBSQL',
-		@datasrc = N'$RemoteMachineFQDN\$RemoteServerInstance';
+		@datasrc = N'$RemoteHostName\$RemoteServerInstance';
 END
 
 EXEC sp_serveroption N'$LinkName', 'rpc out', 'True';
