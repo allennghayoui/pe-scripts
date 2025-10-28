@@ -17,6 +17,15 @@
 	.PARAMETER RemoteHostName
 	Specifies the hostname of the remote machine running the remote SQL Server instance.
 
+	.PARAMETER FQDN
+	Specifies the fully qualified domain name of the Active Directory domain.
+
+	.PARAMETER ConstrainedDelegationAllowedServices
+	Specifies the services that should be allowed for constrained delegation on the SQL Server service account.
+
+	.PARAMETER SqlSvcUsername
+	Specifies the SQL Server services username.
+
 	.PARAMETER SaPassword
 	Specifies the password of the 'sa' user.
 	
@@ -27,7 +36,10 @@
 	Specifies if all the local logins should have passthrough enabled.
 
 	.EXAMPLE
-	PS> .\SqlServerPassthrough.ps1 -LinkName "MyLink" -LocalServerInstance "SQLA" -RemoteServerInstance "SQLB" -SaPassword "P@ssw0rd" -LocalUsername "MYDOMAIN\jdoe"
+	PS> .\SqlServerPassthrough.ps1 -LinkName "MyLink" -LocalServerInstance "SQLA" -SqlSvcUsername "mydomain\sql_svca" -RemoteServerInstance "SQLB" -FQDN "mydomain.local" -SaPassword "P@ssw0rd" -LocalUsername "MYDOMAIN\jdoe"
+
+	.EXAMPLE
+	PS> .\SqlServerPassthrough.ps1 -LinkName "MyLink" -LocalServerInstance "SQLA" -ConstrainedDelegationAllowedServices "MSSQLSvc/HOSTNAMEB.mydomain.local:1433","MSSQLSvc/HOSTNAMEB:1433" -RemoteServerInstance "SQLB" -SaPassword "P@ssw0rd" -LocalUsername "MYDOMAIN\jdoe"
 #>
 
 param(
@@ -39,6 +51,12 @@ param(
 	[string] $RemoteServerInstance,
 	[Parameter(Mandatory=$true)]
 	[string] $RemoteHostName,
+	[Parameter(Mandatory=$false)]
+	[string] $FQDN,
+	[Parameter(Mandatory=$false)]
+	[string[]] $ConstrainedDelegationAllowedServices,
+	[Parameter(Mandatory=$false)]
+	[string] $SqlSvcUsername,
 	[Parameter(Mandatory=$true)]
 	[string] $SaPassword,
 	[Parameter(Mandatory=$false)]
@@ -46,6 +64,23 @@ param(
 	[Parameter(Mandatory=$false)]
 	[switch] $MapAllLocalLogins = $false
 )
+
+
+function CheckForDomainPrefix
+{
+	param(
+		[Parameter(Mandatory=$true)]
+		[string] $Username
+	)
+	
+	if (-not ($Username -match '^[a-zA-Z0-9_-]+\\[a-zA-Z0-9\s_-]+$'))
+	{
+		return $false
+	}
+	
+	return $true
+}
+
 
 $sqlPSDepracatedModulePath = Get-Module -ListAvailable -Name SQLPS | Select-Object -ExpandProperty Path
 if ($sqlPSDepracatedModulePath)
@@ -170,5 +205,54 @@ try
 	exit 1
 }
 
+# Enable Constrained Delegation
+Write-Host "[*] Enabling Constrained Delegation for '$SqlSvcUsername'..."
+
+$isActiveDirectoryModuleAvailable = Get-Module -ListAvailable -Name ActiveDirectory
+if (-not $isActiveDirectoryModuleAvailable)
+{
+	Write-Host "[*] Installing RSAT-AD-PowerShell..."
+	Install-WindowsFeature -Name RSAT-AD-PowerShell -IncludeAllSubFeatures
+	Write-Host "[+] Installed RSAT-AD-PowerShell." 
+}
+Import-Module ActiveDirectory
+
+$allowedServices = $ConstrainedDelegationAllowedServices
+if ($null -eq $allowedServices)
+{
+	if ($FQDN -eq "")
+	{
+		Write-Host "[-] Failed to enable Constrained Delegation for '$SqlSvcUsername' - 'FQDN' cannot be an empty string." -ForegroundColor Red
+		exit 1
+	}
+
+	try
+	{
+		$allowedServices = @("MSSQLSvc/$RemoteHostName.$FQDN:1433", "MSSQLSvc/$RemoteHostName:1433")	
+	} catch
+	{
+		Write-Host "[-] Failed to enable Constrained Delegation for '$SqlSvcUsername' - $_" -ForegroundColor Red
+		exit 1
+	}
+}
+
+$sqlSvcUsernameHasDomainPrefix = CheckForDomainPrefix -Username $SqlSvcUsername
+$isSqlSvcUsernameValid = ($SqlSvcUsername -ne "") -and ($sqlSvcUsernameHasDomainPrefix)
+if (-not $isSqlSvcUsernameValid)
+{
+	Write-Host "[-] Failed to enable Constrained Delegation for '$SqlSvcUsername' - 'SqlSvcUsername' cannot be an empty string and should contain the domain prefix." -ForegroundColor Red
+	exit 1
+}
+
+try
+{
+	Set-ADUser -Identity "$SqlSvcUsername" -Replace @{msDS-AllowedToDelegateTo = $allowedServices}
+} catch
+{
+	Write-Host "[-] Failed to enable Constrained Delegation for '$SqlSvcUsername' - $_" -ForegroundColor Red
+	exit 1
+}
+
+Write-Host "[+] Enabled Constrained Delegation for '$SqlSvcUsername'."
 
 exit 0
