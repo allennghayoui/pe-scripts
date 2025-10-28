@@ -92,21 +92,6 @@ function SplitPrefixFromUsername
 	return $domain, $name	
 }
 
-function CheckForLocalUserPrefix
-{
-	param(
-		[Parameter(Mandatory=$true)]
-		[string] $Username
-	)
-	
-	if (-not ($Username -match '^\.[\\][A-Za-z0-9\s_-]+$'))
-	{
-		return $false
-	}
-	
-	return $true
-}
-
 
 $sqlPSDepracatedModulePath = Get-Module -ListAvailable -Name SQLPS | Select-Object -ExpandProperty Path
 if ($sqlPSDepracatedModulePath)
