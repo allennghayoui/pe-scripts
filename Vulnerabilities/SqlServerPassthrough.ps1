@@ -205,6 +205,22 @@ try
 	exit 1
 }
 
+# Remove fallback to all local logins mapping
+Write-Host "[*] Removing fallback to '@locallogin = NULL' on '$LinkName' link..."
+
+$tsqlRemoveFallbackLocalLoginMapping = "EXEC sp_droplinkedsrvlogin @rmtsrvname = N'$LinkName', @locallogin = NULL;"
+
+try
+{
+	Invoke-Sqlcmd -ServerInstance "$env:COMPUTERNAME\$LocalServerInstance" -Query $tsqlRemoveFallbackLocalLoginMapping -Username "sa" -Password $SaPassword -TrustServerCertificate -ErrorAction Stop
+} catch
+{
+	Write-Host "[-] Failed to remove fallback to '@locallogin = NULL' on '$LinkName' link." -ForegroundColor Red
+	exit 1
+}
+
+Write-Host "[+] Removed fallback to '@locallogin = NULL' on '$LinkName' link."
+
 # Enable Constrained Delegation
 Write-Host "[*] Enabling Constrained Delegation for '$SqlSvcUsername'..."
 
