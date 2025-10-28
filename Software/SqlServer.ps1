@@ -553,7 +553,7 @@ Write-Host "[+] Changed SQL Server Instance Dynamic Port."
 if ($isFqdnNullOrEmpty -and (-not $sqlSvcContainsDomainPrefix))
 {
 	Write-Host "[*] Registering SPNs for '$sqlSvcAccount'..."
-    $spn1 = "MSSQLSvc/$($env:COMPUTERNAME).$FQDN:$instancePort"
+    $spn1 = "MSSQLSvc/$($env:COMPUTERNAME).${FQDN}:$instancePort"
     $spn2 = "MSSQLSvc/$($env:COMPUTERNAME):$instancePort"
 
     setspn -S $spn1 $sqlSvcAccount
