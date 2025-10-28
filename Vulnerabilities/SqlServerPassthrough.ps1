@@ -81,6 +81,32 @@ function CheckForDomainPrefix
 	return $true
 }
 
+function SplitPrefixFromUsername
+{
+	param(
+		[Parameter(Mandatory=$true)]
+		[string] $Username
+	)
+	
+	$domain, $name = $Username.Split("\")
+	return $domain, $name	
+}
+
+function CheckForLocalUserPrefix
+{
+	param(
+		[Parameter(Mandatory=$true)]
+		[string] $Username
+	)
+	
+	if (-not ($Username -match '^\.[\\][A-Za-z0-9\s_-]+$'))
+	{
+		return $false
+	}
+	
+	return $true
+}
+
 
 $sqlPSDepracatedModulePath = Get-Module -ListAvailable -Name SQLPS | Select-Object -ExpandProperty Path
 if ($sqlPSDepracatedModulePath)
@@ -253,22 +279,26 @@ if ($null -eq $allowedServices)
 }
 
 $sqlSvcUsernameHasDomainPrefix = CheckForDomainPrefix -Username $SqlSvcUsername
-$isSqlSvcUsernameValid = ($SqlSvcUsername -ne "") -and ($sqlSvcUsernameHasDomainPrefix)
-if (-not $isSqlSvcUsernameValid)
+
+if ($sqlSvcUsernameHasDomainPrefix)
 {
-	Write-Host "[-] Failed to enable Constrained Delegation for '$SqlSvcUsername' - 'SqlSvcUsername' cannot be an empty string and should contain the domain prefix." -ForegroundColor Red
-	exit 1
+	if ($SqlSvcUsername -eq "")
+	{
+		Write-Host "[-] Failed to enable Constrained Delegation for '$SqlSvcUsername' - 'SqlSvcUsername' cannot be an empty string and should contain the domain prefix." -ForegroundColor Red
+		exit 1
+	}
+	
+	$domain, $usernameWithoutPrefix = SplitPrefixFromUsername -Username $SqlSvcUsername
+	
+	try
+	{
+		Set-ADUser -Identity "$usernameWithoutPrefix" -Add @{'msDS-AllowedToDelegateTo' = $allowedServices}
+	} catch
+	{
+		Write-Host "[-] Failed to enable Constrained Delegation for '$SqlSvcUsername' - $_" -ForegroundColor Red
+		exit 1
+	}
+	
+	Write-Host "[+] Enabled Constrained Delegation for '$SqlSvcUsername'."
 }
-
-try
-{
-	Set-ADUser -Identity "$SqlSvcUsername" -Add @{'msDS-AllowedToDelegateTo' = $allowedServices}
-} catch
-{
-	Write-Host "[-] Failed to enable Constrained Delegation for '$SqlSvcUsername' - $_" -ForegroundColor Red
-	exit 1
-}
-
-Write-Host "[+] Enabled Constrained Delegation for '$SqlSvcUsername'."
-
 exit 0
