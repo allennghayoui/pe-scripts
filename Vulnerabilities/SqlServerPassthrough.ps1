@@ -228,7 +228,7 @@ if ($null -eq $allowedServices)
 
 	try
 	{
-		$allowedServices = @("MSSQLSvc/$RemoteHostName.$FQDN:1433", "MSSQLSvc/$RemoteHostName:1433")	
+		$allowedServices = @("MSSQLSvc/$RemoteHostName.${FQDN}:1433", "MSSQLSvc/$RemoteHostName:1433")	
 	} catch
 	{
 		Write-Host "[-] Failed to enable Constrained Delegation for '$SqlSvcUsername' - $_" -ForegroundColor Red
