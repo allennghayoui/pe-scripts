@@ -22,17 +22,35 @@ param(
 	[string] $SaPassword
 )
 
+$sqlPSDepracatedModulePath = Get-Module -ListAvailable -Name SQLPS | Select-Object -ExpandProperty Path
+if ($sqlPSDepracatedModulePath)
+{
+	try
+	{
+		Write-Host "[*] Removing Depracated SQLPS Module From '$sqlPsDepracatedModulePath'..."
+		Remove-Item -Recurse -Force -Path (Split-Path $sqlPSDepracatedModulePath) -ErrorAction Stop
+		Write-Host "[+] Removed Depracated SQLPS Module From '$sqlPsDepracatedModulePath'."
+	} catch
+	{
+		Write-Host "[-] Failed to remove the depracated powershell module 'SQLPS' from '$sqlPSDepracatedModulePath' - $_" -ForegroundColor Red
+	}
+}
+
 # Install and load SqlServer PowerShell module
 Write-Host "[*] Installing SqlServer PowerShell Module..."
-Install-Module -Name SqlServer
-Write-Host "[+] Installed SqlServer PowerShell Module."
-
 $isSqlServerModuleAvailable = Get-Module -ListAvailable -Name SqlServer -ErrorAction SilentlyContinue
 if (-not $isSqlServerModuleAvailable)
 {
-	Write-Error "[-] SqlServer PowerShell module not found."
-	exit 1
+	try
+	{
+		Install-Module -Name SqlServer -Force -Confirm:$false	
+	} catch
+	{
+		Write-Host "[-] Failed to install SqlServer PowerShell module - $_" -ForegroundColor Red
+	}
 }
+Write-Host "[+] Installed SqlServer PowerShell Module."
+
 Import-Module SqlServer
 
 # Enable xp_cmdshell on target SQL Server instance
@@ -46,7 +64,7 @@ RECONFIGURE;
 try
 {
 	Write-Host "[*] enabling xp_cmdshell on $InstanceName..."
-	Invoke-Sqlcmd -ServerInstance "$env:COMPUTERNAME\$InstanceName" -Database "master" -Query $tsqlEnableXpCmdShell -Username "sa" -Password $SaPassword -ErrorAction Stop
+	Invoke-Sqlcmd -ServerInstance "$env:COMPUTERNAME\$InstanceName" -Database "master" -Query $tsqlEnableXpCmdShell -Username "sa" -Password $SaPassword -TrustServerCertificate -ErrorAction Stop
 	Write-Host "[+] enabled xp_cmdshell on $InstanceName."
 } catch
 {
@@ -59,7 +77,7 @@ $tsqlCheckXpCmdShell = "SELECT value_in_use FROM sys.configurations WHERE name =
 try
 {
 	Write-Host "[*] Checking if xp_cmdshell was successfully enabled..."
-	$isXpCmdShellEnabled = Invoke-Sqlcmd -ServerInstance "$env:COMPUTERNAME\$InstanceName" -Database "master" -Query $tsqlCheckXpCmdShell -ErrorAction Stop
+	$isXpCmdShellEnabled = Invoke-Sqlcmd -ServerInstance "$env:COMPUTERNAME\$InstanceName" -Database "master" -Query $tsqlCheckXpCmdShell -TrustServerCertificate -ErrorAction Stop
 
 	if ($isXpCmdShellEnabled.value_in_use -eq 0)
 	{
