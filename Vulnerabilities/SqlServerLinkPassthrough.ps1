@@ -52,6 +52,8 @@ param(
 	[Parameter(Mandatory=$true)]
 	[string] $RemoteHostName,
 	[Parameter(Mandatory=$false)]
+	[string] $LocalUsername,
+	[Parameter(Mandatory=$false)]
 	[string] $FQDN,
 	[Parameter(Mandatory=$false)]
 	[string[]] $ConstrainedDelegationAllowedServices,
@@ -59,8 +61,6 @@ param(
 	[string] $SqlSvcUsername,
 	[Parameter(Mandatory=$true)]
 	[string] $SaPassword,
-	[Parameter(Mandatory=$false)]
-	[string] $LocalUsername,
 	[Parameter(Mandatory=$false)]
 	[switch] $MapAllLocalLogins = $false
 )
