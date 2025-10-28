@@ -550,6 +550,17 @@ Restart-Service "MSSQL`$$InstanceName" -Force
 
 Write-Host "[+] Changed SQL Server Instance Dynamic Port."
 
+if ($isFqdnNullOrEmpty -and (-not $sqlSvcContainsDomainPrefix))
+{
+	Write-Host "[*] Registering SPNs for '$sqlSvcAccount'..."
+    $spn1 = "MSSQLSvc/$($env:COMPUTERNAME).$FQDN:$instancePort"
+    $spn2 = "MSSQLSvc/$($env:COMPUTERNAME):$instancePort"
+
+    setspn -S $spn1 $sqlSvcAccount
+    setspn -S $spn2 $sqlSvcAccount
+    Write-Host "[+] SPNs registered: '$spn1' and '$spn2'."
+}
+
 # Add firewall inbound rules
 Write-Host "[*] Adding Firewall Inbound Rules..."
 New-NetFirewallRule -DisplayName "SQL Browser UDP" -Direction Inbound -Protocol UDP -LocalPort 1434 -Action Allow
