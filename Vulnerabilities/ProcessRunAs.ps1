@@ -113,6 +113,7 @@ Set-ItemProperty -Path $Path -Name "DefaultPassword" -Value $Password -Type Stri
 Write-Host "[+] Modified Registry Autologon."
 
 Write-Host "[!] Restarting computer in 5 seconds..." -ForegroundColor Yellow
+Start-Sleep -Seconds 5
 Restart-Computer -Force
 
 exit 0
