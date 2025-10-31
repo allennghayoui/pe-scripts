@@ -105,10 +105,10 @@ if ($isFqdnNullOrEmpty -and (-not $usernameContainsDomainPrefix))
 
 Write-Host "[*] Modifying Registry Autologon..."
 
-Set-ItemProperty -Path $Path -Name "AutoAdminLogon" -Value "1" -Type String
-Set-ItemProperty -Path $Path -Name "ForceAutoLogon" -Value "1" -Type String
-Set-ItemProperty -Path $Path -Name "DefaultUsername" -Value $usernameWithoutPrefix -Type String
-Set-ItemProperty -Path $Path -Name "DefaultPassword" -Value $Password -Type String
+Set-ItemProperty -Path $RegPath -Name "AutoAdminLogon" -Value "1" -Type String
+Set-ItemProperty -Path $RegPath -Name "ForceAutoLogon" -Value "1" -Type String
+Set-ItemProperty -Path $RegPath -Name "DefaultUsername" -Value $usernameWithoutPrefix -Type String
+Set-ItemProperty -Path $RegPath -Name "DefaultPassword" -Value $Password -Type String
 
 Write-Host "[+] Modified Registry Autologon."
 
